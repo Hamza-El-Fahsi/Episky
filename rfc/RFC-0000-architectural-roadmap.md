@@ -90,7 +90,7 @@ ratified when RFC-0019 is accepted.
 | 0018 | Deployment & Distribution | Infrastructure | Planned | Post-MVP |
 | 0019 | MVP Definition & Milestone Plan | Implementation | Planned | Required |
 | 0020 | Implementation Blueprint & Build Order | Implementation | Planned | Required |
-| 0021 | System Model & Supported Platforms | Domain | Planned | Required |
+| 0021 | System Model & Supported Platforms | Domain | Draft | Required |
 
 ---
 
@@ -362,7 +362,7 @@ position.
   thing the prior RFCs define*. Writing it earlier would either speculate about
   unaccepted decisions or duplicate them.
 
-### RFC-0021 — System Model & Supported Platforms
+### RFC-0021 — System Model & Supported Platforms (Draft)
 - **Category:** Domain
 - **Purpose:** Define the abstract model of "a Linux system" that the Assistant
   reasons about: the parts it understands (distro, package manager, init system,
