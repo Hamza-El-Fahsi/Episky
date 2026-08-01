@@ -270,7 +270,10 @@ states its justification.
 - **Justification:** Assumptions are cheapest where they buy de-fragmentation
   (init, package manager, privilege) and dangerous where they hide reality (disk,
   network, services). This RFC fixes the former and forbids the latter: the
-  boundary between assumed and observed is itself an architectural invariant.
+  boundary between assumed and observed is a **governing rule** of this RFC —
+  it is a normative constraint on how the Assistant treats a machine, not a
+  member of the runtime invariant set (RFC-0002 §9) or the authority invariants
+  (RFC-0004 §8). Weakening it requires an amendment to this RFC.
 
 ---
 
@@ -320,7 +323,8 @@ Two rules apply to all subsystems:
 - **Boundary:** The machine's own resources. External devices attached but not
   part of the platform (printers, phones) are outside.
 - **Owns:** Hardware state (what the platform is), and the interface by which
-  the OS starts.
+  the OS starts. State representation: Facts only — no mutable State Domain
+  (§6.10).
 - **Depends on:** nothing — it is the bottom of the stack.
 
 ### 4.3 Boot
@@ -328,8 +332,9 @@ Two rules apply to all subsystems:
   bootloader, kernel handoff.
 - **Boundary:** Ends when the init system (systemd) takes over as PID 1. The
   running kernel is Kernel's subject.
-- **Owns:** Boot state (§6.1) — the question "does this machine boot, and to
-  what?".
+- **Owns:** Boot state — the question "does this machine boot, and to what?".
+  State representation: Configuration State (boot configuration) plus Facts
+  (boot outcome) (§6.10).
 - **Depends on:** Hardware (it boots *something*).
 
 ### 4.4 Kernel
@@ -337,7 +342,9 @@ Two rules apply to all subsystems:
 - **Boundary:** The kernel *as running* is here; the files it boots from are
   Boot's; the drivers' userspace interfaces appear in /sys and /proc, which
   belong here.
-- **Owns:** Kernel state — what is running and with what parameters.
+- **Owns:** Kernel state — what is running and with what parameters. State
+  representation: Configuration State (parameters set at boot) plus Facts
+  (running kernel) (§6.10).
 - **Depends on:** Hardware, Boot.
 
 ### 4.5 Users
@@ -365,7 +372,8 @@ Two rules apply to all subsystems:
 - **Boundary:** Ends at the *block level*: raw devices and partitions. What a
   filesystem makes of them is Filesystems' subject.
 - **Owns:** Storage state (devices, partitioning, free space at the block
-  level).
+  level). State representation: Filesystem State (block usage, free space) plus
+  Facts (device and partition identity) (§6.10).
 - **Depends on:** Hardware, Kernel (device drivers).
 
 ### 4.8 Filesystems
@@ -413,7 +421,8 @@ Two rules apply to all subsystems:
 - **Boundary:** Machine-generated records here. The project's Audit (§13 of
   RFC-0002) is a *different* record owned by the project; it is not this
   subsystem.
-- **Owns:** Log state (what the machine has recorded).
+- **Owns:** Log state (what the machine has recorded). State representation:
+  Facts only — no mutable State Domain (§6.10).
 - **Depends on:** Services (most log lines come from services), Boot, Kernel.
 
 ### 4.13 Applications
@@ -423,7 +432,9 @@ Two rules apply to all subsystems:
 - **Boundary:** What the package manager does *not* own here. A program that is
   an installed package is Packages' subject; the same program's running state is
   Services'.
-- **Owns:** Application state (what else is on the machine).
+- **Owns:** Application state (what else is on the machine). State
+  representation: Filesystem State (app files), User State (per-user app data),
+  plus Facts (presence and version) (§6.10).
 - **Depends on:** Filesystems, Users, Packages (some apps wrap packages),
   Networking.
 
@@ -509,6 +520,11 @@ Two properties are stated for each domain:
 - **Independence:** whether the domain's state can change without the others.
 - **Influence:** which other domains this domain's state tends to change.
 
+The domains below are the *mutable* decomposition of machine state. Subsystems
+whose state is read-only (Hardware, Logs) or decomposed across existing domains
+(Boot, Kernel, Storage, Applications) are mapped to these domains — or to Facts
+— in §6.10, which is the normative owner of that mapping.
+
 ### 6.2 Package State
 - **What:** What is installed and at what version, according to the family's
   native ecosystem; what is updateable; what repositories are configured.
@@ -571,11 +587,52 @@ Two properties are stated for each domain:
 | User | Medium | Security, Services, Apps |
 | Security | Medium | Network, Services, Boot, Users |
 
+Influence targets that are subsystems (Boot, Logs, Apps) are shorthand for the
+state representation those subsystems are mapped to in §6.10. The summary is
+explanatory; §6.10 is the normative owner of that mapping.
+
 The **order of change** the Assistant assumes when diagnosing: configuration
 tends to be the *cause* (config → service → symptom), packages tend to be the
 *remedy* (fix by changing package or config state), and filesystem/network are
 the common *enabling* failures. This ordering is a model, not a rule: Facts and
 Verification (RFC-0005, RFC-0006) are what actually establish cause.
+
+### 6.10 Subsystem ↔ State Domain mapping (normative)
+
+The Machine Subsystems (§4) are *subjects of reality*; the State Domains
+(§6.2–§6.8) are *categories of mutable machine state*. They are different cuts
+of the same machine and are therefore not one-to-one. This table is the
+normative statement of where each subsystem's state lives. Every subsystem maps
+to one of: a named State Domain; **Facts only** (no mutable State Domain — its
+state is read-only and is represented by Facts, RFC-0005); or a named domain
+*plus* Facts, where the domain owns the configurable state and Facts own the
+observed state.
+
+| Subsystem | State representation | Notes |
+|---|---|---|
+| **Hardware** | Facts only | Immutable in the model (§7.1 grants Inspect only, no Modify). State = platform identity. |
+| **Boot** | Configuration State (§6.4) + Facts | Boot *configuration* (bootloader, boot entries, kernel command line) is Configuration State; the boot *outcome* ("does it boot, and to what") is a Fact established by Observation/Verification. |
+| **Kernel** | Configuration State (§6.4) + Facts | Kernel parameters are set through boot configuration (Configuration State); the *running* kernel (version, modules, runtime parameters) is a Fact. |
+| **Users** | User State (§6.7) | |
+| **Services** | Service State (§6.3) | |
+| **Storage** | Filesystem State (§6.5) + Facts | Device identity and partition layout are Facts; block-level usage and free space are Filesystem State (a full disk is a Filesystem-State failure). |
+| **Filesystems** | Filesystem State (§6.5) | |
+| **Packages** | Package State (§6.2) | |
+| **Networking** | Network State (§6.6) | |
+| **Security** | Security State (§6.8) | |
+| **Logs** | Facts only | The machine's record is read-only (§7.1: Inspect only, no Modify). It is observed, never mutated. |
+| **Applications** | Filesystem State (§6.5) + User State (§6.7) + Facts | Application presence and version are Facts; application files are Filesystem State; per-user application data is User State. |
+
+Two normative rules complete the mapping:
+
+1. **Every Fact about the machine belongs to exactly one subsystem** (§4) and is
+   expressed in that subsystem's State representation above — either in its
+   State Domain or as one of its own Facts.
+2. **No individual fact or state item is owned by more than one
+   representation.** Where a subsystem's state spans a domain *and* Facts (Boot,
+   Kernel, Storage, Applications), the table fixes which items belong to the
+   domain and which are Facts; a Fact that could be read as belonging to two
+   rows is invalid until the ambiguity is resolved in the subsystem's favor.
 
 ---
 
