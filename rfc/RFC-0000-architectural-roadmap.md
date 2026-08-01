@@ -73,7 +73,7 @@ ratified when RFC-0019 is accepted.
 | 0001 | Architecture & Design Foundations | Foundations | Accepted | Required |
 | 0002 | Runtime Architecture & Session State Machine | Runtime | Accepted | Required |
 | 0003 | RFC Governance & Document Process | Foundations | Accepted | Required |
-| 0004 | Trust & Authority Model | Security | Planned | Required |
+| 0004 | Trust & Authority Model | Security | Accepted | Required |
 | 0005 | Fact Model & Diagnostics Architecture | Domain | Planned | Required |
 | 0006 | Verification & Rollback Semantics | Domain | Planned | Required |
 | 0007 | Trust Model, Sanitization & Injection Defense | Security | Planned | Required |
@@ -131,7 +131,7 @@ position.
   RFC needs a defined way to become normative. It has no technical content and
   can be written immediately without waiting on anything.
 
-### RFC-0004 — Trust & Authority Model
+### RFC-0004 — Trust & Authority Model (Accepted)
 - **Category:** Security
 - **Purpose:** Specify who may do what across every actor: ownership of the
   machine, session, truth, permissions, execution, policy, memory, and risk

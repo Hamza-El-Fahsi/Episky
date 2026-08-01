@@ -1,6 +1,6 @@
 # RFC-0004 — Trust and Authority Model
 
-**Status:** Draft
+**Status:** Accepted
 **Date:** 2026-08-01
 **Scope:** Who may do what: authority, ownership, and trust boundaries across every actor
 **Audience:** Future maintainers
