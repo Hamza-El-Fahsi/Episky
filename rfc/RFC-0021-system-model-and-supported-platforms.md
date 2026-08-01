@@ -139,7 +139,7 @@ go through the amendment process.
 | **openSUSE family** | openSUSE Leap, Tumbleweed | **Planned** | zypper and YaST conventions differ; systemd-standard but a distinct configuration culture. |
 | **Immutable / atomic systems** | Fedora Silverblue, openSUSE MicroOS, NixOS | **Experimental** | The *concept* is modeled (§2.4) but no family is promised yet; image-based update and rollback semantics need a dedicated system model (RFC-0001 Q7). |
 | **Other distros** | Alpine, Gentoo, Slackware, Void, others | **Unsupported** | No Family Profile, no test baseline, no Facts promised. Alpine's musl libc in particular is a different platform model. |
-| **Non-Linux OSes** | BSDs, macOS, Windows, ChromeOS | **Out of Scope** | Not the project's purpose (RFC-0001 non-goal 5). |
+| **Non-Linux OSes** | BSDs, macOS, Windows, ChromeOS | **Out of Scope** | Not the project's purpose (RFC-0001 non-goal 11). |
 | **Android** | Android, Android-based | **Out of Scope** | Not a user-facing Linux system in the project's sense (§8.6). |
 
 ### 2.3 The Family Profile (conceptual)
@@ -418,7 +418,7 @@ Two rules apply to all subsystems:
 ### 4.12 Logs
 - **Subject:** The machine's record of its own behavior: system journal
   (journald), service logs, and other machine logs.
-- **Boundary:** Machine-generated records here. The project's Audit (§13 of
+- **Boundary:** Machine-generated records here. The project's Audit (§6 of
   RFC-0002) is a *different* record owned by the project; it is not this
   subsystem.
 - **Owns:** Log state (what the machine has recorded). State representation:
@@ -707,7 +707,7 @@ with wrong assumptions.
 | **Live ISO / rescue media** | **Limited** | A live environment boots to RAM with no persistent state. It has no Package State worth reasoning about and no durable Configuration State. The Assistant's state domains assume persistence. Useful conceptually for "does the machine boot" but not as a target. |
 | **Minimal rescue systems** | **Future work** | A rescue system (e.g., a minimal recovery environment) is a legitimate target for repair work, but it is a *different* machine model (no package manager, no service state). This is deferred; see §11. |
 | **Embedded Linux** | **Unsupported** | Embedded targets (buildroot, Yocto) have custom init, no package manager, and often no root account. They violate nearly every §3 assumption. |
-| **Android** | **Out of Scope** | Android is a Linux kernel with a non-Linux platform above it. It is not a user-facing Linux system in the project's sense (RFC-0001 non-goal 5). |
+| **Android** | **Out of Scope** | Android is a Linux kernel with a non-Linux platform above it. It is not a user-facing Linux system in the project's sense (RFC-0001 non-goal 11). |
 
 **Rule for unknown environments:** when the Assistant cannot confirm that the
 machine satisfies the §3 assumptions, it must treat the machine as *unknown*
@@ -727,7 +727,7 @@ justified.
 ### 9.1 Single machine
 - **Assumption:** The Assistant models exactly **one** Machine — the one the
   Operator runs it on.
-- **Why:** RFC-0001 non-goal 6 (no fleet). Multi-machine reasoning would
+- **Why:** RFC-0001 non-goal 3 (no fleet). Multi-machine reasoning would
   multiply every state domain and break the machine abstraction's coherence.
   One machine keeps every Fact unambiguous about its subject.
 
@@ -767,11 +767,11 @@ This section is exhaustive of what the machine model does **not** cover, so no
 later document can assume otherwise.
 
 1. **Non-Linux operating systems** — BSD, macOS, Windows, ChromeOS. Not the
-   project's purpose (RFC-0001 non-goal 5).
+   project's purpose (RFC-0001 non-goal 11).
 2. **Android and Android-based systems** (§8.6).
 3. **Fleet / multi-machine / remote management** (§9.1, §9.5).
 4. **Containers as machines** — the Assistant models a Machine; a container is
-   not one (§8.3).
+   not one (§8.2).
 5. **Non-systemd init systems** in the MVP (§3.1–3.2).
 6. **Non-Supported architectures** — anything beyond x86-64 and aarch64 for the
    first release.
@@ -781,7 +781,7 @@ later document can assume otherwise.
    exhaustive for the MVP.
 9. **Embedded Linux, live ISO persistence, and rescue-system models** (§8).
 10. **The project's own Audit and security state** — these are internal
-    (RFC-0002 §13, RFC-0009) and are deliberately *not* subsystems of the
+    (RFC-0002 §6, RFC-0009) and are deliberately *not* subsystems of the
     Machine model (§4.11–4.12).
 
 Anything not listed in §2, §5, or §8 as Supported is, by default, Unsupported
@@ -891,7 +891,7 @@ follow RFC-0003 Part II.
 Every risk above is addressed by the same structural move: **the model is
 separated from the machine.** The Assistant holds an abstraction (§4) and
 expectations (Family Profiles, §2.3), but the only reality it trusts is Facts
-collected by Inspection (RFC-0001 §3.5, RFC-0005). A surprising machine
+collected by Inspection (RFC-0001 §5.4, RFC-0005). A surprising machine
 surfaces as surprising Facts, which the runtime handles by treating the machine
 as unknown — it does not collapse because a configuration was unexpected.
 Fragmentation is therefore an *input condition* the model handles, not an

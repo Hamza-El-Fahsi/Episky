@@ -134,7 +134,7 @@ No part of this RFC contains implementation details, APIs, or code.
   and change — the system whose processes, configuration, and installed
   software the session acts upon. It may be a physical host, a virtual machine,
   or a container environment, determined by where the Assistant runs.
-- **Is not:** A fleet or network of machines (RFC-0001 non-goal 6); not the
+- **Is not:** A fleet or network of machines (RFC-0001 non-goal 3); not the
   cloud account; not the distro's servers; not the Operator's broader
   infrastructure.
 - **Relates to:** Described by Facts and Machine State; owned by the Operator;
