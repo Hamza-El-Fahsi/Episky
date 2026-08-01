@@ -1,0 +1,15 @@
+# OS and editor artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
+
+# Logs and temporary files
+*.log
+tmp/
+/tmp/
+
+# Tooling output (opencode and similar)
+/opencode.log
