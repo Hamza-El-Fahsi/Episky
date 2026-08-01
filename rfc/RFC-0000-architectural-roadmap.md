@@ -5,7 +5,7 @@
 **Scope:** The complete set of architecture documents required before implementation
 **Audience:** Future maintainers
 **Supersedes:** Nothing
-**Depends on:** RFC-0001, RFC-0002 (both accepted)
+**Depends on:** RFC-0001, RFC-0002, RFC-0003 (all accepted)
 
 ---
 
@@ -17,9 +17,9 @@ written. It is deliberately *not* an architecture document itself. It contains n
 implementation details, no APIs, and no design decisions beyond "what must be
 decided, and in what order."
 
-RFC-0001 and RFC-0002 are accepted and will not be rewritten; everything below
-is planned. This index is a living document: when an RFC is drafted or accepted,
-this file is updated to reflect it.
+RFC-0001, RFC-0002, and RFC-0003 are accepted and will not be rewritten;
+everything below is planned. This index is a living document: when an RFC is
+drafted or accepted, this file is updated to reflect it.
 
 Two rules govern this roadmap:
 
@@ -58,8 +58,8 @@ ratified when RFC-0019 is accepted.
 |---|---|---|
 | **Foundations** | The constitution: what the project is and how its documents are governed. | 0001, 0003 |
 | **Runtime** | How the Assistant behaves while working, and what it records. | 0002, 0012, 0013, 0014 |
-| **Domain** | What the tool knows about Linux systems: the model of a machine, its facts, and what "fixed" means. | 0004, 0005, 0006 |
-| **Security** | Trust, risk, authorization, and sensitive data. The safety spine. | 0007, 0008, 0009 |
+| **Domain** | What the tool knows about Linux systems: the model of a machine, its facts, and what "fixed" means. | 0005, 0006, 0021 |
+| **Security** | Trust, risk, authorization, and sensitive data. The safety spine. | 0004, 0007, 0008, 0009 |
 | **Extension System** | How the project grows: providers and skills. | 0010, 0011 |
 | **Infrastructure** | The operational shell: interface, configuration, compatibility, distribution. | 0015, 0016, 0017, 0018 |
 | **Implementation** | The gate before code: what the MVP is and how it is built. | 0019, 0020 |
@@ -72,8 +72,8 @@ ratified when RFC-0019 is accepted.
 |---|---|---|---|---|
 | 0001 | Architecture & Design Foundations | Foundations | Accepted | Required |
 | 0002 | Runtime Architecture & Session State Machine | Runtime | Accepted | Required |
-| 0003 | RFC Governance & Document Process | Foundations | Planned | Required |
-| 0004 | System Model & Supported Platforms | Domain | Planned | Required |
+| 0003 | RFC Governance & Document Process | Foundations | Accepted | Required |
+| 0004 | Trust & Authority Model | Security | Planned | Required |
 | 0005 | Fact Model & Diagnostics Architecture | Domain | Planned | Required |
 | 0006 | Verification & Rollback Semantics | Domain | Planned | Required |
 | 0007 | Trust Model, Sanitization & Injection Defense | Security | Planned | Required |
@@ -90,6 +90,7 @@ ratified when RFC-0019 is accepted.
 | 0018 | Deployment & Distribution | Infrastructure | Planned | Post-MVP |
 | 0019 | MVP Definition & Milestone Plan | Implementation | Planned | Required |
 | 0020 | Implementation Blueprint & Build Order | Implementation | Planned | Required |
+| 0021 | System Model & Supported Platforms | Domain | Planned | Required |
 
 ---
 
@@ -130,17 +131,26 @@ position.
   RFC needs a defined way to become normative. It has no technical content and
   can be written immediately without waiting on anything.
 
-### RFC-0004 — System Model & Supported Platforms
-- **Category:** Domain
-- **Purpose:** Define the abstract model of "a Linux system" that the Assistant
-  reasons about: the parts it understands (distro, package manager, init system,
-  services, files, users, boot) and the parts it treats as opaque. Fix the
-  initial support matrix (distro families, releases), how immutable/atomic
-  systems are modeled, and what "supported" means for a skill or diagnostic.
-- **Dependencies:** RFC-0001 (system boundaries).
-- **Why here:** It is the domain foundation. The fact model (0005) and
-  verification semantics (0006) both reason *about* the thing this RFC defines.
-  It must precede them.
+### RFC-0004 — Trust & Authority Model
+- **Category:** Security
+- **Purpose:** Specify who may do what across every actor: ownership of the
+  machine, session, truth, permissions, execution, policy, memory, and risk
+  classification; the authority levels (Observe, Propose, Infer, Verify,
+  Approve, Execute, Refuse, Persist, Explain); the downward flow of authority;
+  the separation of trust from authority; the Authority Matrix (Allowed /
+  Forbidden / Conditional per actor per authority); the invariants that make the
+  grants enforceable; and a per-actor abuse-case analysis. It is the authority
+  model only — data-flow/sanitization stay in RFC-0007, risk taxonomy and gate
+  mechanics stay in RFC-0008.
+- **Dependencies:** RFC-0001 (§7–§8), RFC-0002 (§9 invariants and execution
+  gate), RFC-0003 (vocabulary).
+- **Why here:** It was added at the maintainer's request and takes the number
+  originally reserved for "System Model & Supported Platforms," which moved to
+  RFC-0021. It is the *authority* foundation: every later RFC that involves a
+  decision, a grant, or an execution must conform to its matrix. Written after
+  the vocabulary (0003) so actors and authorities have stable names, and before
+  the security mechanics (0007, 0008) so those RFCs define gates *within* fixed
+  authority bounds.
 
 ### RFC-0005 — Fact Model & Diagnostics Architecture
 - **Category:** Domain
@@ -150,7 +160,7 @@ position.
   parallel. It is the specification for RFC-0001's "the only source of factual
   claims about the machine."
 - **Dependencies:** RFC-0001, RFC-0002 (Inspection and Verification roles),
-  RFC-0004 (the system model the facts describe).
+  RFC-0021 (the system model the facts describe).
 - **Why here:** Facts are the spine of the entire runtime: providers, skills,
   context, verification, and the TUI all consume them. It must be defined before
   providers and skills specify anything about what they see.
@@ -226,7 +236,7 @@ position.
   (sandboxing) for skill execution, and the trust/review process for anything
   shipped or recommended as trusted. It also fixes the boundary between the
   ecosystem and the runtime (RFC-0001 §11).
-- **Dependencies:** RFC-0001 (extensibility), RFC-0004 (targeting distros),
+- **Dependencies:** RFC-0001 (extensibility), RFC-0021 (targeting distros),
   RFC-0005 (skills declare and consume facts), RFC-0007 (skill content is
   untrusted), RFC-0008 (skill actions pass the same gate).
 - **Why here:** Skills are a core goal but the *full* ecosystem is not an MVP
@@ -306,7 +316,7 @@ position.
 - **Purpose:** Specify how the skill format, fact model, provider contract, and
   RFC statuses are versioned; stability guarantees; and migration of skills and
   sessions across versions.
-- **Dependencies:** RFC-0004, RFC-0005, RFC-0010, RFC-0011 (the things that get
+- **Dependencies:** RFC-0021, RFC-0005, RFC-0010, RFC-0011 (the things that get
   versioned).
 - **Why here:** **Post-MVP.** Until the project has shipped, there is nothing to
   be compatible with. It must be written *before* the first public release, but
@@ -319,7 +329,7 @@ position.
   channels, supported host OS releases, update mechanics, release cadence, and
   the boundary between our packaging and the distro's own packaging (RFC-0001
   non-goal 9).
-- **Dependencies:** RFC-0001 (non-goals), RFC-0004 (host platform), RFC-0009
+- **Dependencies:** RFC-0001 (non-goals), RFC-0021 (host platform), RFC-0009
   (telemetry posture, if any).
 - **Why here:** **Post-MVP.** The mechanics of shipping are decided during
   implementation; this RFC formalizes the *commitments* (support matrix, cadence,
@@ -333,8 +343,8 @@ position.
   set of built-in procedures, plan approval, execution, verification, audit,
   minimal context and config) and, just as explicitly, everything it excludes.
   Ratify the Required/Post-MVP classification from this document.
-- **Dependencies:** RFC-0003 through RFC-0013 and RFC-0015 (all Required RFCs
-  before it).
+- **Dependencies:** RFC-0003 through RFC-0013, RFC-0015, RFC-0021 (all Required
+  RFCs before it).
 - **Why here:** It is the first *scoping* document and can only be written once
   the Required architecture exists to scope. It is the gate that makes
   "before production code" meaningful.
@@ -346,11 +356,25 @@ position.
   architectural testing philosophy (state-machine conformance, invariant checks),
   and the build order in which each stage is demonstrable and verifiable. This is
   the final document before production code.
-- **Dependencies:** RFC-0001 through RFC-0019 (every Required RFC, plus the MVP
-  definition).
+- **Dependencies:** RFC-0001 through RFC-0019, RFC-0021 (every Required RFC,
+  plus the MVP definition).
 - **Why here:** It is deliberately last: its entire content is *how to build the
   thing the prior RFCs define*. Writing it earlier would either speculate about
   unaccepted decisions or duplicate them.
+
+### RFC-0021 — System Model & Supported Platforms
+- **Category:** Domain
+- **Purpose:** Define the abstract model of "a Linux system" that the Assistant
+  reasons about: the parts it understands (distro, package manager, init system,
+  services, files, users, boot) and the parts it treats as opaque. Fix the
+  initial support matrix (distro families, releases), how immutable/atomic
+  systems are modeled, and what "supported" means for a skill or diagnostic.
+- **Dependencies:** RFC-0001 (system boundaries).
+- **Why here:** It is the domain foundation. The fact model (0005) and
+  verification semantics (0006) both reason *about* the thing this RFC defines.
+  It must precede them. This RFC was moved from the number originally reserved
+  as RFC-0004 when that number was reassigned to the Trust & Authority Model
+  (see the amendment log).
 
 ---
 
@@ -360,17 +384,17 @@ These must be **Accepted** before a single line of production code is written.
 Without them, either the MVP cannot be specified, or it would be built against
 undecided safety or domain semantics.
 
-**Required (18):** RFC-0001, RFC-0002, RFC-0003, RFC-0004, RFC-0005, RFC-0006,
+**Required (19):** RFC-0001, RFC-0002, RFC-0003, RFC-0004, RFC-0005, RFC-0006,
 RFC-0007, RFC-0008, RFC-0009, RFC-0010, RFC-0011, RFC-0012, RFC-0013, RFC-0015,
-RFC-0019, RFC-0020.
+RFC-0019, RFC-0020, RFC-0021.
 
 Rationale, grouped:
 
-- **Safety spine (0007, 0008, 0009).** The gate, the trust rules, and the secret
-  handling are the reasons the project exists and the reasons it is safe to run
-  at all. Code written before these exist would violate RFC-0001 invariants by
-  construction.
-- **Domain spine (0004, 0005, 0006).** The system model, the fact model, and
+- **Safety spine (0004, 0007, 0008, 0009).** The authority model, the trust
+  rules, the gate, and the secret handling are the reasons the project exists and
+  the reasons it is safe to run at all. Code written before these exist would
+  violate RFC-0001 invariants by construction.
+- **Domain spine (0021, 0005, 0006).** The system model, the fact model, and
   verification are what the runtime *does*. Verification, in particular, is
   called out by RFC-0001 as a prerequisite; building the executor before
   verification semantics exist would produce exactly the "verification theater"
@@ -421,27 +445,32 @@ treated as high-stakes reviews.
    (0002's execution gate), every skill contract (0011), the interaction contract
    (0015's approval UX), and the audit's most important records (0013). It is the
    single highest-blast-radius document.
-2. **RFC-0005 — Fact Model.** Every component consumes facts: providers (0010),
+2. **RFC-0004 — Trust & Authority Model.** Its Authority Matrix binds every
+   component's behavior (who may propose, infer, verify, approve, execute) and
+   its invariants A1–A10 must be satisfied by the runtime (0002), the security
+   mechanics (0007, 0008), and the contracts (0010, 0011). Written early, it
+   forces later RFCs to specify gates *within* fixed authority bounds.
+3. **RFC-0005 — Fact Model.** Every component consumes facts: providers (0010),
    skills (0011), context (0012), verification (0006), and the interface (0015).
    A change to the fact model ripples through all of them.
-3. **RFC-0007 — Trust Model.** The data-flow rules bind every component. A
+4. **RFC-0007 — Trust Model.** The data-flow rules bind every component. A
    change to how untrusted text is handled changes the provider contract, the
    skill contract, context, and audit simultaneously.
-4. **RFC-0010 — Provider Contract.** The internal representation is the joint
+5. **RFC-0010 — Provider Contract.** The internal representation is the joint
    between the Core and every vendor. Changing it requires touching every adapter
    and the orchestration rules that consume provider output.
-5. **RFC-0011 — Skill System.** The skill format is consumed by diagnostics,
+6. **RFC-0011 — Skill System.** The skill format is consumed by diagnostics,
    execution, approval, and the interface. Ecosystem trust decisions (what is
    "trusted") interact with the security spine and may force changes there.
-6. **RFC-0006 — Verification & Rollback.** Its definition of "verified" directly
+7. **RFC-0006 — Verification & Rollback.** Its definition of "verified" directly
    constrains the runtime invariants in 0002 and the fact model's staleness rules
    in 0005.
-7. **RFC-0014 — Session Persistence, Resume & Recovery.** Although Post-MVP, it
+8. **RFC-0014 — Session Persistence, Resume & Recovery.** Although Post-MVP, it
    is the one deferred RFC most likely to **amend an accepted RFC** (0002's
    interruption/resume semantics, and possibly 0008's attended-execution policy).
    Because of this, its core semantics should be agreed as a decision record
    during the pre-MVP phase even though the full document waits.
-8. **RFC-0015 — Operator Interface.** Approval-presentation decisions can force
+9. **RFC-0015 — Operator Interface.** Approval-presentation decisions can force
    rework in the approval engine (0008) if the two are written without
    cross-checking; they must be developed against each other.
 
@@ -457,41 +486,42 @@ must be **accepted in phase order** so dependencies are never speculative.
 1. **RFC-0003** (RFC Governance) — defines how everything else is ratified.
 
 **Phase 1 — Safety spine**
-2. **RFC-0007** (Trust Model) — the frame every component obeys.
-3. **RFC-0008** (Approval & Policy) — the gate; highest blast radius, so early.
+2. **RFC-0004** (Trust & Authority) — who may do what; the frame for the gate.
+3. **RFC-0007** (Trust Model) — the frame every component obeys.
+4. **RFC-0008** (Approval & Policy) — the gate; highest blast radius, so early.
 
 **Phase 2 — Domain spine**
-4. **RFC-0004** (System Model) — the thing facts describe.
-5. **RFC-0005** (Fact Model) — the spine of all consumption.
-6. **RFC-0006** (Verification & Rollback) — expressed in facts, so after 0005.
+5. **RFC-0021** (System Model) — the thing facts describe.
+6. **RFC-0005** (Fact Model) — the spine of all consumption.
+7. **RFC-0006** (Verification & Rollback) — expressed in facts, so after 0005.
 
 **Phase 3 — Provider and secrets**
-7. **RFC-0009** (Secrets & Privacy) — the provider must be designed within it.
-8. **RFC-0010** (Provider Contract) — the MVP's first provider adapter needs it.
+8. **RFC-0009** (Secrets & Privacy) — the provider must be designed within it.
+9. **RFC-0010** (Provider Contract) — the MVP's first provider adapter needs it.
 
 **Phase 4 — Extension and runtime support**
-9. **RFC-0011** (Skill Contract) — built on the gate and the fact model.
-10. **RFC-0012** (Context & Memory) — assembled from facts, bounded by privacy.
-11. **RFC-0013** (Audit & Transcript) — records the gate, so after 0008.
+10. **RFC-0011** (Skill Contract) — built on the gate and the fact model.
+11. **RFC-0012** (Context & Memory) — assembled from facts, bounded by privacy.
+12. **RFC-0013** (Audit & Transcript) — records the gate, so after 0008.
 
 **Phase 5 — Operator and scope**
-12. **RFC-0015** (Operator Interface) — the MVP's interaction contract.
-13. **RFC-0019** (MVP Definition) — the first scoping document; ratifies this
+13. **RFC-0015** (Operator Interface) — the MVP's interaction contract.
+14. **RFC-0019** (MVP Definition) — the first scoping document; ratifies this
     roadmap's Required/Post-MVP split.
 
 **Phase 6 — The gate before code**
-14. **RFC-0020** (Implementation Blueprint) — the final document before
+15. **RFC-0020** (Implementation Blueprint) — the final document before
     production code.
 
 **Phase 7 — Post-MVP (written only after the MVP ships or is frozen)**
-15. **RFC-0014** (Session Persistence & Resume) — core decisions recorded early
+16. **RFC-0014** (Session Persistence & Resume) — core decisions recorded early
     as a decision record; full RFC after MVP.
-16. **RFC-0016** (Configuration) — grows with the product.
-17. **RFC-0017** (Compatibility) — required *before first public release*.
-18. **RFC-0018** (Deployment) — required *before first public release*.
+17. **RFC-0016** (Configuration) — grows with the product.
+18. **RFC-0017** (Compatibility) — required *before first public release*.
+19. **RFC-0018** (Deployment) — required *before first public release*.
 
 Writing order by RFC number, for quick reference:
-**0003 → 0007 → 0008 → 0004 → 0005 → 0006 → 0009 → 0010 → 0011 → 0012 → 0013 → 0015 → 0019 → 0020** then **0014 → 0016 → 0017 → 0018**.
+**0003 → 0004 → 0007 → 0008 → 0021 → 0005 → 0006 → 0009 → 0010 → 0011 → 0012 → 0013 → 0015 → 0019 → 0020** then **0014 → 0016 → 0017 → 0018**.
 
 ---
 
@@ -508,7 +538,7 @@ the RFCs above. This appendix exists so no question is lost between documents.
 | 4 | Read-only allowlist | RFC-0008 |
 | 5 | Standing approvals | RFC-0008 |
 | 6 | Fact normalization across distros | RFC-0005 |
-| 7 | Immutable systems | RFC-0004 |
+| 7 | Immutable systems | RFC-0021 |
 | 8 | Output bounds / truncation | RFC-0005 |
 | 9 | Fact staleness | RFC-0005 |
 | 10–11 | Verification definition, rollback promises | RFC-0006 |
@@ -520,7 +550,7 @@ the RFCs above. This appendix exists so no question is lost between documents.
 | 19–22 | Skill packaging, review, sandboxing, audit | RFC-0011 |
 | 23 | Network access policy | RFC-0008 |
 | 24 | Concurrent diagnostics | RFC-0005 |
-| 25 | Supported distro families | RFC-0004 |
+| 25 | Supported distro families | RFC-0021 |
 | 26 | Cost controls | RFC-0010 |
 | 27 | Compatibility policy | RFC-0017 |
 
@@ -575,6 +605,27 @@ the RFCs above. This appendix exists so no question is lost between documents.
 
 ---
 
-*End of RFC-0000. Normative for this document: sections 1–7. Sections 8–9 are
+## 10. Amendment Log
+
+### AM-2026-08-01-1 — Reassign RFC-0004; renumber System Model to RFC-0021
+- **Type:** Normative amendment to this roadmap (not BREAKING: no Principle,
+  Boundary, Invariant, or Definition is weakened).
+- **Original text:** §3 row `| 0004 | System Model & Supported Platforms |
+  Domain | Planned | Required |`.
+- **Replacement text:** §3 row `| 0004 | Trust & Authority Model | Security |
+  Planned | Required |`; new row `| 0021 | System Model & Supported Platforms |
+  Domain | Planned | Required |`.
+- **Why:** At the maintainer's request, RFC-0004 is authored as the **Trust &
+  Authority Model** (Security). The previously reserved System Model subject is
+  renumbered to **RFC-0021** and remains Required. The Trust & Authority Model
+  also depends on RFC-0003 (vocabulary), so the writing order now places 0004
+  before 0007/0008, and the dependency edges (0005, 0011, 0017, 0018, 0019,
+  0020) and coverage owners (§8 Q7, Q25) now reference RFC-0021.
+- **Also updated mechanically:** RFC-0003's status in this index
+  (Planned → Accepted), consistent with its acceptance.
+
+---
+
+*End of RFC-0000. Normative for this document: sections 1–7. Sections 8–10 are
 explanatory and maintained alongside. This document is amended whenever an RFC
 changes status or the Required/Post-MVP split is ratified.*
