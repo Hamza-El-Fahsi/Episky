@@ -561,7 +561,7 @@ the RFCs above. This appendix exists so no question is lost between documents.
 | 3 | Timeouts | RFC-0008 |
 | 4 | Read-only allowlist | RFC-0008 |
 | 5 | Idle/awaiting drift | RFC-0005, RFC-0014 |
-| 6 | Resume lifetime | RFC-0014 |
+| 6 | Resume lifetime (container sub-question) | RFC-0014 (resume lifetime); RFC-0021 §8 (container case) |
 | 7 | Attended vs. unattended execution | RFC-0008, RFC-0014 |
 | 8 | Reboot-resume verification | RFC-0014 |
 | 9 | Interrupted-action reconciliation | RFC-0014 |

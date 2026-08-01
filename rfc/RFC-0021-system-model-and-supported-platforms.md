@@ -703,7 +703,7 @@ with wrong assumptions.
 | Environment | Status | Rationale |
 |---|---|---|
 | **WSL (Windows Subsystem for Linux)** | **Limited** | The Linux is real but its init, filesystem, and service model differ deliberately (WSLg, no systemd by default on WSL1, a different `/etc/wsl.conf` culture). The Assistant's model assumptions (§3) may not hold. Treat as unknown until Facts confirm the model. |
-| **Containers (Docker, Podman, etc.)** | **Unsupported** | A container is not a Machine in this project's sense: no boot, no init as PID 1, no journal as a system. It is a process boundary, not a system model. Modeling it would corrupt the Machine abstraction. |
+| **Containers (Docker, Podman, etc.)** | **Unsupported** | A container is not a Machine in this project's sense: no boot, no init as PID 1, no journal as a system. It is a process boundary, not a system model. Modeling it would corrupt the Machine abstraction. This classification answers the container sub-question of RFC-0002 Open Question 6 ("What if the user runs the tool inside a container now?"): a container is an unknown environment under the rule below. |
 | **Live ISO / rescue media** | **Limited** | A live environment boots to RAM with no persistent state. It has no Package State worth reasoning about and no durable Configuration State. The Assistant's state domains assume persistence. Useful conceptually for "does the machine boot" but not as a target. |
 | **Minimal rescue systems** | **Future work** | A rescue system (e.g., a minimal recovery environment) is a legitimate target for repair work, but it is a *different* machine model (no package manager, no service state). This is deferred; see §11. |
 | **Embedded Linux** | **Unsupported** | Embedded targets (buildroot, Yocto) have custom init, no package manager, and often no root account. They violate nearly every §3 assumption. |
@@ -713,6 +713,9 @@ with wrong assumptions.
 machine satisfies the §3 assumptions, it must treat the machine as *unknown*
 and collect Facts to establish what kind of machine it is — it must never
 silently reason as if the machine were Supported (RFC-0001 §10, RFC-0004 §9.5).
+This rule also operationalizes RFC-0002 Open Question 6's container case
+(§8, containers row): running inside a container is an unknown environment, not
+a Supported machine.
 
 ---
 
