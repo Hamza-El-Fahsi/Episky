@@ -142,3 +142,46 @@ def test_allowed_and_forbidden_are_consistent():
                 f"{pkg} -> {target} is both allowed and forbidden"
             )
             assert target in ALL_PACKAGES and target != pkg
+
+
+def _has_cycle(graph):
+    """True if `graph` (node -> iterable of nodes) contains a directed cycle."""
+    GRAY, BLACK = 1, 2
+    color = dict.fromkeys(graph, 0)
+
+    def visit(node):
+        color[node] = GRAY
+        for nxt in graph.get(node, ()):
+            if color.get(nxt, 0) == GRAY:
+                return True
+            if color.get(nxt, 0) == 0 and visit(nxt):
+                return True
+        color[node] = BLACK
+        return False
+
+    return any(color[node] == 0 and visit(node) for node in graph)
+
+
+def test_allowed_graph_is_acyclic():
+    """Blueprint §4.1 must itself be buildable — no allowed-edge cycles."""
+    graph = {pkg: set(targets) for pkg, targets in ALLOWED.items()}
+    assert not _has_cycle(graph)
+
+
+def test_actual_import_graph_is_acyclic():
+    """The observed package import graph must stay acyclic."""
+    graph = {pkg: set() for pkg in ALLOWED}
+    for path in PACKAGE_ROOT.rglob("*.py"):
+        src = path.read_text(encoding="utf-8")
+        tree = ast.parse(src)
+        source_pkg = path.parts[-2]
+        if source_pkg == "episky":
+            continue
+        for imported in _import_edges(tree):
+            target = _resolve(imported)
+            if target is None or target == "episky":
+                continue
+            if target == source_pkg:
+                continue
+            graph[source_pkg].add(target)
+    assert not _has_cycle(graph)
