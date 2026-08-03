@@ -7,9 +7,19 @@ pure, behavior-free type declaration. No behavior is tested — there is
 none yet (blueprint §8.2: type-level invariant conformance tests only).
 """
 
+from datetime import datetime
+
 import pytest
 
-from episky.schema.fact import FactStatus, Freshness, FreshnessState
+from episky.schema.fact import (
+    Collector,
+    ConfidenceSource,
+    FactStatus,
+    Freshness,
+    FreshnessState,
+    ObservationReference,
+    Provenance,
+)
 
 
 def test_fact_status_has_exactly_eight_members():
@@ -88,3 +98,78 @@ def test_freshness_is_immutable():
     freshness = Freshness(state=FreshnessState.CURRENT)
     with pytest.raises(AttributeError):
         freshness.state = FreshnessState.STALE
+
+
+def _provenance():
+    return Provenance(
+        observation=ObservationReference(),
+        collector=Collector(name="package-state", version="1"),
+        collected_at=datetime(2026, 8, 3, 12, 0, 0),
+    )
+
+
+def test_collector_identity_requires_name_and_version():
+    with pytest.raises(TypeError):
+        Collector(name="package-state")
+    with pytest.raises(TypeError):
+        Collector(version="1")
+    collector = Collector(name="package-state", version="1")
+    assert collector.name == "package-state"
+    assert collector.version == "1"
+
+
+def test_collector_identity_is_immutable():
+    collector = Collector(name="package-state", version="1")
+    with pytest.raises(AttributeError):
+        collector.name = "other"
+
+
+def test_confidence_source_is_a_named_check_only():
+    source = ConfidenceSource(name="dpkg-query--status")
+    assert source.name == "dpkg-query--status"
+
+
+def test_confidence_source_has_no_numeric_field():
+    annotations = ConfidenceSource.__annotations__
+    assert set(annotations) == {"name"}
+    assert annotations["name"] is str
+
+
+def test_confidence_source_is_immutable():
+    source = ConfidenceSource(name="dpkg-query--status")
+    with pytest.raises(AttributeError):
+        source.name = "other"
+
+
+def test_observation_reference_carries_no_data():
+    ObservationReference()
+    assert ObservationReference.__slots__ == ()
+    with pytest.raises(TypeError):
+        ObservationReference("payload")
+
+
+def test_provenance_components_are_mandatory():
+    collector = Collector(name="package-state", version="1")
+    with pytest.raises(TypeError):
+        Provenance(collector=collector, collected_at=datetime(2026, 8, 3))
+    with pytest.raises(TypeError):
+        Provenance(
+            observation=ObservationReference(),
+            collected_at=datetime(2026, 8, 3),
+        )
+    with pytest.raises(TypeError):
+        Provenance(observation=ObservationReference(), collector=collector)
+
+
+def test_provenance_carries_observation_reference():
+    provenance = _provenance()
+    assert provenance.observation is not None
+    assert provenance.collector == Collector(name="package-state", version="1")
+    assert provenance.collected_at == datetime(2026, 8, 3, 12, 0, 0)
+    assert provenance.re_collected_at == ()
+
+
+def test_provenance_is_immutable():
+    provenance = _provenance()
+    with pytest.raises(AttributeError):
+        provenance.collector = Collector(name="other", version="1")

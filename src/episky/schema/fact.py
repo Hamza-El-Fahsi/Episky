@@ -8,9 +8,17 @@ Forbidden responsibility: never LLM-authored (F1), never
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum, auto
 
-__all__ = ["FactStatus", "Freshness", "FreshnessState"]
+__all__ = [
+    "Collector",
+    "ConfidenceSource",
+    "FactStatus",
+    "Freshness",
+    "FreshnessState",
+    "Provenance",
+]
 
 
 class FactStatus(Enum):
@@ -103,3 +111,111 @@ class Freshness:
     """
 
     state: FreshnessState
+
+
+@dataclass(frozen=True, slots=True)
+class Collector:
+    """Identity of the inspection that ran (RFC-0005 §5 "Who collected it?").
+
+    The exact Collector identity — a name and a version — that ran the
+    inspection (RFC-0005 §5). A Collector is a deterministic, read-only
+    inspection procedure that produces Observations and carries declared
+    inputs and provenance behavior (RFC-0003 §2.4). This type carries
+    only the identity; the procedure itself is the Collector's own and
+    belongs to the pipeline (Iteration 3). Frozen: an identity does not
+    change.
+
+    Attributes:
+        name: The Collector's name.
+        version: The Collector's version.
+    """
+
+    name: str
+    version: str
+
+
+@dataclass(frozen=True, slots=True)
+class ConfidenceSource:
+    """Why a Fact's value is believed — a named check, never a number.
+
+    RFC-0005 §3: the Confidence Source is *why* the value is believed —
+    a named deterministic check, a re-observation, or a Collector —
+    never a percentage and never an LLM estimate. It is a Fact's
+    grounds, not a score.
+
+    This type carries the check's name and nothing else: its only field
+    is a ``str``, so a numeric confidence score is structurally
+    inexpressible — the type-level reading of "never a percentage"
+    (RFC-0005 §3; F16).
+
+    Attributes:
+        name: The name of the deterministic check that grounds the
+            claim.
+    """
+
+    name: str
+
+
+class ObservationReference:
+    """Placeholder for the Observation a Provenance names (RFC-0005 §5).
+
+    RFC-0005 §5 requires every Fact to answer "where did this come
+    from?" by naming the Observation it was normalized from. This
+    deliberately empty class preserves that dependency now. It is:
+
+    - NOT the Observation model — that is owned exclusively by the
+      pipeline (RFC-0005 §2; Iteration 3 / RFC-0020);
+    - NOT an identifier, persistence, or serialization format, and NOT
+      a handle;
+    - NOT an implementation of RFC-0005 §2; it carries no data and no
+      behavior;
+    - an internal Iteration 1 marker only, never a public contract
+      (deliberately excluded from ``__all__``).
+
+    It owns no semantics beyond "references an Observation that will be
+    defined later." Iteration 1 code must never inspect, compare, parse,
+    validate, serialize, resolve, or interpret it. Iteration 3 must be
+    able to replace it with the real Observation model with zero
+    semantic changes to Provenance: the placeholder is only the type of
+    ``Provenance.observation``.
+    """
+
+    __slots__ = ()
+
+
+@dataclass(frozen=True, slots=True)
+class Provenance:
+    """Provenance of a Fact — where, who, when, how, reproducible.
+
+    RFC-0005 §5: every Fact must answer five questions, and provenance
+    is not optional metadata — an unprovenanced claim is not a Fact
+    (F10). This record answers them. Every component is mandatory
+    (provenance is attached at normalization, never added later,
+    RFC-0005 §5) and the record is immutable (F8).
+
+    - where: ``observation`` — the Observation the Fact was normalized
+      from (an ObservationReference placeholder; the real Observation
+      model is Iteration 3's);
+    - who: ``collector`` — the exact Collector identity that ran the
+      inspection;
+    - when: ``collected_at`` and ``re_collected_at`` — the collection
+      timestamp and every re-collection timestamp;
+    - using what / can it be reproduced: the named Collector and its
+      declared inputs and provenance behavior (RFC-0003 §2.4);
+      reproduction is by re-running the same Collector under the same
+      conditions (RFC-0005 §5). The concrete reproduction record is
+      RFC-0020's to define and is deferred here, like the freshness
+      bound (RFC-0005 §12; design review §16 #8).
+
+    Attributes:
+        observation: The Observation this Fact was normalized from
+            (see ObservationReference).
+        collector: The Collector identity that ran the inspection.
+        collected_at: When the underlying Observation was collected.
+        re_collected_at: Every re-collection timestamp, if any.
+    """
+
+    observation: ObservationReference
+    collector: Collector
+    collected_at: datetime
+    re_collected_at: tuple[datetime, ...] = ()
