@@ -916,7 +916,7 @@ Subsystem**, **State Domain**, **System Capability**, **Package Ecosystem**,
    differences).
 2. **systemd-minimal variants.** Whether systemd-less variants of otherwise
    Supported families (e.g., a container base image) should be Limited rather
-   than Unsupported is deferred to the Fact Model.
+   than Unsupported is deferred to the Fact Model (RFC-0005).
 3. **Immutable model.** The exact modeling of image state and A/B rollback
    (§2.4) is an open design owned by this RFC's future amendment; it is recorded
    here so it is not lost.

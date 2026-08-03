@@ -25,12 +25,16 @@ suggested. It exists to keep the repository reviewable and the history clean.
 5. **Use Conventional Commits** (see below).
 6. **Run the tests before every commit** whenever applicable. If a change has no
    applicable tests, say so in the pull request.
-7. **Update documentation when behavior changes.** The RFCs are normative;
+7. **Run the RFC validator before committing RFC or tooling changes.**
+   `python3 tools/validate_rfc_refs.py` must exit `0` before accepting an RFC,
+   opening an RFC pull request, or merging an RFC branch. See
+   [`tools/README.md`](tools/README.md) for the full workflow.
+8. **Update documentation when behavior changes.** The RFCs are normative;
    documentation that disagrees with them is a defect.
-8. **Push the branch and open a pull request** that references its issue
+9. **Push the branch and open a pull request** that references its issue
    (`Fixes #N`). Never merge your own pull request without review.
-9. **Milestones get tagged.** Every completed milestone receives a Git tag and a
-   GitHub Release.
+10. **Milestones get tagged.** Every completed milestone receives a Git tag and a
+    GitHub Release.
 
 ## Conventional Commits
 
@@ -65,6 +69,9 @@ Architecture is written, not decided in code. The full constitution is
 
 If you are proposing a feature, expect to be asked "what does the RFC say?"
 That is the process working, not friction.
+
+RFC pull requests must also validate clean before they can be accepted, opened,
+or merged. See [`tools/README.md`](tools/README.md).
 
 ## Testing and documentation
 

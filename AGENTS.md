@@ -46,5 +46,7 @@ blueprint) are accepted — see the roadmap.
 1. Open (or find) a GitHub Issue for the task.
 2. Create a branch `feat/<n>-<slug>` (or `fix/`, `docs/`, `rfc/`) from `main`.
 3. Do the work; commit atomically with Conventional Commits.
-4. Run applicable checks/tests before committing.
+4. Run applicable checks/tests before committing. If you changed `rfc/` or
+   `tools/`, run `python3 tools/validate_rfc_refs.py` and make sure it exits `0`
+   before opening a pull request (mandatory gates in `tools/README.md`).
 5. Push, open a pull request referencing the issue, and get it reviewed.

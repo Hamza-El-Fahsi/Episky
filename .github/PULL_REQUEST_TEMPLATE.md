@@ -15,5 +15,6 @@
 - [ ] Linked issue (`Fixes #N`)
 - [ ] Conventional Commit(s) used
 - [ ] Tests pass (or explain why none apply)
+- [ ] RFC validator clean if `rfc/` or `tools/` changed (`python3 tools/validate_rfc_refs.py` exits 0)
 - [ ] Documentation updated where behavior changed
 - [ ] RFC amendment needed? (If this changes an accepted RFC, it must not merge without it.)
