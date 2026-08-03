@@ -7,6 +7,7 @@ pure, behavior-free type declaration. No behavior is tested — there is
 none yet (blueprint §8.2: type-level invariant conformance tests only).
 """
 
+import dataclasses
 from datetime import datetime
 
 import pytest
@@ -14,6 +15,7 @@ import pytest
 from episky.schema.fact import (
     Collector,
     ConfidenceSource,
+    Fact,
     FactStatus,
     Freshness,
     FreshnessState,
@@ -261,3 +263,116 @@ def test_f12_machine_identity_is_an_opaque_placeholder():
     assert not issubclass(MachineIdentity, str)
     with pytest.raises(TypeError):
         MachineIdentity("payload")
+
+
+def _fact():
+    return Fact(
+        scope=Scope(
+            subject=Subject(name="systemd"),
+            property=Property(name="running-state"),
+            value=Value(value="running"),
+        ),
+        status=FactStatus.OBSERVED,
+        confidence=ConfidenceSource(name="systemctl-is-active"),
+        provenance=_provenance(),
+        freshness=Freshness(state=FreshnessState.CURRENT),
+        machine_identity=MachineIdentity(),
+    )
+
+
+def test_fact_is_a_composition_of_canonical_types():
+    fact = _fact()
+    assert fact.scope.subject == Subject(name="systemd")
+    assert fact.scope.property == Property(name="running-state")
+    assert fact.scope.value == Value(value="running")
+    assert fact.status is FactStatus.OBSERVED
+    assert fact.confidence == ConfidenceSource(name="systemctl-is-active")
+    assert fact.provenance.collector == Collector(name="package-state", version="1")
+    assert fact.provenance.collected_at == datetime(2026, 8, 3, 12, 0, 0)
+    assert fact.freshness == Freshness(state=FreshnessState.CURRENT)
+    assert fact.machine_identity is not None
+
+
+def test_fact_components_are_mandatory():
+    kwargs = {
+        "scope": Scope(
+            subject=Subject(name="systemd"),
+            property=Property(name="running-state"),
+            value=Value(value="running"),
+        ),
+        "status": FactStatus.OBSERVED,
+        "confidence": ConfidenceSource(name="systemctl-is-active"),
+        "provenance": _provenance(),
+        "freshness": Freshness(state=FreshnessState.CURRENT),
+        "machine_identity": MachineIdentity(),
+    }
+    for missing in kwargs:
+        partial = {k: v for k, v in kwargs.items() if k != missing}
+        with pytest.raises(TypeError):
+            Fact(**partial)
+
+
+def test_fact_is_immutable():
+    fact = _fact()
+    with pytest.raises(AttributeError):
+        fact.status = FactStatus.VERIFIED
+
+
+def test_f1_fact_has_no_raw_text_field():
+    raw_text = (str, bytes, bytearray)
+    component_types = {
+        Scope,
+        FactStatus,
+        ConfidenceSource,
+        Provenance,
+        Freshness,
+        MachineIdentity,
+    }
+    assert set(Fact.__annotations__.values()) == component_types
+    for field_type in Fact.__annotations__.values():
+        assert field_type not in raw_text
+
+
+def test_f2_fact_has_no_permission_field():
+    forbidden = {
+        "permission",
+        "role",
+        "authority",
+        "capability",
+        "privilege",
+        "grant",
+        "approval",
+        "token",
+        "policy",
+    }
+    assert set(Fact.__annotations__).isdisjoint(forbidden)
+
+
+def test_f3_fact_is_a_pure_immutable_data_record():
+    assert dataclasses.is_dataclass(Fact)
+    assert Fact.__slots__
+    component_types = {
+        Scope,
+        FactStatus,
+        ConfidenceSource,
+        Provenance,
+        Freshness,
+        MachineIdentity,
+    }
+    assert set(Fact.__annotations__.values()) == component_types
+
+
+def test_f10_provenance_is_mandatory_on_fact():
+    partial = {
+        "scope": Scope(
+            subject=Subject(name="systemd"),
+            property=Property(name="running-state"),
+            value=Value(value="running"),
+        ),
+        "status": FactStatus.OBSERVED,
+        "confidence": ConfidenceSource(name="systemctl-is-active"),
+        "freshness": Freshness(state=FreshnessState.CURRENT),
+        "machine_identity": MachineIdentity(),
+    }
+    with pytest.raises(TypeError):
+        Fact(**partial)

@@ -14,6 +14,7 @@ from enum import Enum, auto
 __all__ = [
     "Collector",
     "ConfidenceSource",
+    "Fact",
     "FactStatus",
     "Freshness",
     "FreshnessState",
@@ -328,3 +329,59 @@ class MachineIdentity:
     """
 
     __slots__ = ()
+
+
+@dataclass(frozen=True, slots=True)
+class Fact:
+    """The canonical claim about the machine (RFC-0005 §3).
+
+    A Fact is the project's canonical claim about the Machine: a
+    normalized, deterministic statement, expressed in the canonical
+    vocabulary, carrying provenance, status, freshness, and machine
+    identity (RFC-0005 §3). This is a pure, immutable data composition
+    of the canonical component types; it owns no behavior, performs no
+    consistency checking, and introduces no inference.
+
+    The RFC-0005 §3 components are realized as follows:
+
+    - Subject, Property, Value — carried by ``scope``, which is exactly
+      the claim (F13);
+    - Status — ``status`` (RFC-0005 §4);
+    - Confidence Source — ``confidence`` (a named check, never a
+      number, §3);
+    - Collector and Timestamp — carried by ``provenance``, which
+      answers "who" and "when" (§5);
+    - Provenance — ``provenance``, mandatory (F10);
+    - Freshness — ``freshness`` (§12);
+    - Machine Identity — ``machine_identity`` (opaque placeholder,
+      §11; contents are RFC-0014's).
+
+    The Identifier component (§3, §6) is deferred: its form and
+    generation are RFC-0020's (design review §16 #9), and Fact Identity
+    (§6) and Relationships (§8) are later-iteration behavior. Deferred
+    rather than partially specified (RFC-0003 Part II §1).
+
+    F1 (type-level): every field is a typed canonical component and none
+    is a raw-text field, so a Fact is not expressed in raw or
+    LLM-authored text; the only construction path takes those
+    components, which normalization produces from a normalized
+    Observation (RFC-0005 §2, §13). Behavioral enforcement that a value
+    came from a normalized Observation is the pipeline's (Iteration 3;
+    design review §16 #10). F2: no field names or confers a permission.
+    F3: pure immutable data — nothing executes.
+
+    Attributes:
+        scope: Exactly what the Fact claims (F13).
+        status: The Fact's single status (RFC-0005 §4).
+        confidence: Why the value is believed (RFC-0005 §3).
+        provenance: The provenance chain (RFC-0005 §5), mandatory (F10).
+        freshness: The freshness bound and state (RFC-0005 §12).
+        machine_identity: The machine the Fact describes (RFC-0005 §11).
+    """
+
+    scope: Scope
+    status: FactStatus
+    confidence: ConfidenceSource
+    provenance: Provenance
+    freshness: Freshness
+    machine_identity: MachineIdentity
