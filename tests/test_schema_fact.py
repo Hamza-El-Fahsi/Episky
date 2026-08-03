@@ -17,8 +17,13 @@ from episky.schema.fact import (
     FactStatus,
     Freshness,
     FreshnessState,
+    MachineIdentity,
     ObservationReference,
+    Property,
     Provenance,
+    Scope,
+    Subject,
+    Value,
 )
 
 
@@ -173,3 +178,86 @@ def test_provenance_is_immutable():
     provenance = _provenance()
     with pytest.raises(AttributeError):
         provenance.collector = Collector(name="other", version="1")
+
+
+def test_subject_property_value_are_named_canonical_components():
+    subject = Subject(name="systemd")
+    prop = Property(name="running-state")
+    value = Value(value="running")
+    assert subject.name == "systemd"
+    assert prop.name == "running-state"
+    assert value.value == "running"
+
+
+def test_claim_components_are_immutable():
+    subject = Subject(name="systemd")
+    with pytest.raises(AttributeError):
+        subject.name = "other"
+    value = Value(value="running")
+    with pytest.raises(AttributeError):
+        value.value = "stopped"
+
+
+def test_scope_requires_subject_property_value():
+    with pytest.raises(TypeError):
+        Scope(
+            subject=Subject(name="systemd"),
+            property=Property(name="running-state"),
+        )
+    with pytest.raises(TypeError):
+        Scope(
+            property=Property(name="running-state"),
+            value=Value(value="running"),
+        )
+    with pytest.raises(TypeError):
+        Scope(
+            subject=Subject(name="systemd"),
+            value=Value(value="running"),
+        )
+
+
+def test_scope_carries_subject_property_value():
+    scope = Scope(
+        subject=Subject(name="systemd"),
+        property=Property(name="running-state"),
+        value=Value(value="running"),
+    )
+    assert scope.subject == Subject(name="systemd")
+    assert scope.property == Property(name="running-state")
+    assert scope.value == Value(value="running")
+
+
+def test_scope_is_immutable():
+    scope = Scope(
+        subject=Subject(name="systemd"),
+        property=Property(name="running-state"),
+        value=Value(value="running"),
+    )
+    with pytest.raises(AttributeError):
+        scope.subject = Subject(name="other")
+
+
+def test_f13_scope_asserts_exactly_the_claim():
+    assert set(Scope.__annotations__) == {"subject", "property", "value"}
+
+
+def test_f2_no_permission_field_in_claim_types():
+    claim_types = (Subject, Property, Value, Scope)
+    fields = set().union(*(set(t.__annotations__) for t in claim_types))
+    forbidden = {
+        "permission",
+        "role",
+        "authority",
+        "capability",
+        "privilege",
+        "grant",
+    }
+    assert fields.isdisjoint(forbidden)
+
+
+def test_f12_machine_identity_is_an_opaque_placeholder():
+    MachineIdentity()
+    assert MachineIdentity.__slots__ == ()
+    assert not issubclass(MachineIdentity, str)
+    with pytest.raises(TypeError):
+        MachineIdentity("payload")

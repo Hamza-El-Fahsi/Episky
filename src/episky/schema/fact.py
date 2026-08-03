@@ -17,7 +17,11 @@ __all__ = [
     "FactStatus",
     "Freshness",
     "FreshnessState",
+    "Property",
     "Provenance",
+    "Scope",
+    "Subject",
+    "Value",
 ]
 
 
@@ -219,3 +223,108 @@ class Provenance:
     collector: Collector
     collected_at: datetime
     re_collected_at: tuple[datetime, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class Subject:
+    """What a Fact is about (RFC-0005 §3).
+
+    The Subject is the thing the claim names — a machine, a subsystem, a
+    State Domain, a device, a package, or a service (RFC-0005 §3). Its
+    canonical, distro-independent vocabulary is RFC-0021's (Iteration 2);
+    this type carries the canonical name so a Subject is a distinct,
+    non-stringly-typed component (RFC-0005 §1, §3). Together with
+    Property it names the claim; Value and Status say what is claimed.
+    Frozen: a naming component does not change.
+
+    Attributes:
+        name: The canonical, distro-independent name of the Subject.
+    """
+
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class Property:
+    """The attribute of the Subject being asserted (RFC-0005 §3).
+
+    Examples per RFC-0005 §3: installed-version, running-state,
+    mount-point. Together Subject + Property name the claim; Value and
+    Status say what is claimed. Frozen: a naming component does not
+    change.
+
+    Attributes:
+        name: The canonical name of the asserted attribute.
+    """
+
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class Value:
+    """The asserted content of a Property (RFC-0005 §3).
+
+    The Value is the claim's content in canonical, distro-independent
+    terms. It is distinct from Status: "the service is stopped" (a
+    Value) is not "the service's state is unknown" (a Status), and a
+    Value never contains a permission or authority (F2). Frozen: an
+    immutable observation component (F8).
+
+    Attributes:
+        value: The canonical, distro-independent asserted content.
+    """
+
+    value: str
+
+
+@dataclass(frozen=True, slots=True)
+class Scope:
+    """Exactly what a Fact asserts — its Subject, Property, and Value.
+
+    RFC-0005 §3: a Fact asserts exactly its Subject, Property, and
+    Value; nothing more may be inferred (F13). This record carries those
+    three components and nothing else.
+
+    RFC-0005 §3 and §10 also make the category part of Scope; the
+    FactCategory vocabulary is owned by RFC-0021 / Iteration 2 and is
+    deferred (design review §16 #4), so it is not a field here. Commit 5
+    adds it additively, with zero semantic change to this type.
+
+    Attributes:
+        subject: The Subject the Fact is about.
+        property: The Property of the Subject being asserted.
+        value: The asserted content of the Property.
+    """
+
+    subject: Subject
+    property: Property
+    value: Value
+
+
+class MachineIdentity:
+    """Opaque placeholder for the machine a Fact describes (RFC-0005 §11).
+
+    Every Fact carries the identity of the machine its Observation was
+    collected on, and a Fact is valid only for the machine it names
+    (RFC-0005 §11; F12). The precise contents of Machine Identity are
+    RFC-0014's to define, and RFC-0014 does not exist yet. This
+    deliberately empty class preserves the dependency now. It is:
+
+    - NOT the machine-identity model — contents are owned by RFC-0014;
+    - NOT an identifier, persistence, or serialization format, and NOT
+      a handle;
+    - NOT an implementation of RFC-0005 §11; it carries no data and no
+      behavior;
+    - an internal Iteration 1 marker only, never a public contract
+      (deliberately excluded from ``__all__`` until RFC-0014 defines
+      it).
+
+    It owns no semantics beyond "the machine this Fact describes, to be
+    defined later." Iteration 1 code must never inspect, compare, parse,
+    validate, serialize, resolve, or interpret it. RFC-0014 must be able
+    to replace it with the real Machine Identity model with zero
+    semantic changes to its consumers: the placeholder is only the type
+    of the field that names the machine.
+    """
+
+    __slots__ = ()
