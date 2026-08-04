@@ -225,6 +225,71 @@ and the design review.
 
 ---
 
+## Iteration 2 — ratification and consistency review (pre-implementation)
+
+Iteration 2 implements the **System Model layer** (`systemmodel`, RFC-0021) plus
+an additive `schema` change (DN-9). Scope, DoD, and RFC basis are transcribed
+from blueprint §8.3 (systemmodel half). The full design review is
+`docs/iteration-2-design-review.md`; the ratified decisions are DN-7…DN-12 in
+`docs/implementation-decision-notes.md`.
+
+### Short architectural consistency review
+
+The ratified Iteration 2 decisions were checked against the frozen corpus. The
+result is **consistent**: no RFC is modified, Layer-0 constraints hold, and no
+ownership changes beyond what the ratification assigns.
+
+- **Scope (DN-7).** Iteration 2 = `systemmodel` only; `trust` is deferred to its
+  own design review. Blueprint §4.1 (layers), §7 (trust DoD), and the `trust`
+  package are untouched. The blueprint §8.3 iteration pairing is a scheduling
+  statement, not an architecture rule; splitting the iteration changes no
+  dependency edge and no ownership.
+- **FamilyStatus (DN-8).** Five values including Experimental. Consistent with
+  RFC-0021 §2.2 (Immutable row), §2.4, and §5.1; the §2.1 four-word table is
+  read as supplemented, not contradicted. No §2.1 meaning is weakened.
+- **FactCategory type/semantics split (DN-9, amends DN-3).** The enum type lives
+  in `schema` (Layer 0, stdlib-only, type only); `systemmodel` owns the
+  category→subsystem and category→state-domain mappings and the meaning. This
+  satisfies RFC-0005 §10 ("category membership follows RFC-0021"), preserves
+  DN-3's "RFC-0021 sole owner" for semantics, keeps `Scope` category-free
+  (the §10 "part of Scope" binding is deferred), and keeps Layer 0 intact
+  (an enum needs no imports). No Accepted RFC is modified (RFC-0005/0021 Draft).
+- **Import edge (DN-11).** `systemmodel`→`schema` is an authorized blueprint
+  §4.1 edge; using it for `schema.FactCategory` adds no new dependency.
+- **Category set (DN-10).** RFC-0005 §10's 12 categories; the
+  Users↔Configuration reconciliation is mapping data, not an RFC change.
+- **Profile (DN-12).** The full §2.3 five-dimension set as descriptive data;
+  matches blueprint §7 ("profile data only") and §8.3 DoD (profile lookup for
+  Supported families).
+- **Gates.** No production behavior is introduced; vocabulary + data only
+  (blueprint §8.0). `systemmodel` stays Layer 1; its modules stay
+  `[profiles, subsystems]`; dependency-rule and package-tree tests remain green.
+
+**Residual open items (reported, not resolved):** A6 (encoding §6.9
+independence as data), A7 (§4.14 summary graph vs §4.2–§4.13 clauses), A8
+(class-vs-family members: Immutable, Other distros), A9 (Draft rework risk).
+These are owned by RFC-0021 (Draft) and do not block Iteration 2.
+
+### Ratified decisions (DN-7 … DN-12)
+
+| Note | Decision | Resolves |
+|---|---|---|
+| DN-7 | Iteration 2 = `systemmodel` only; `trust` deferred to its own review | §16 A10 / Q1 |
+| DN-8 | `FamilyStatus` five-valued, incl. Experimental | §16 A1 / Q2 |
+| DN-9 | `FactCategory` type in `schema`; semantics owned by `systemmodel`; amends DN-3 | §16 A4 / Q3 |
+| DN-10 | Category set = RFC-0005 §10's 12; reconciliation via mapping | §16 A2 / Q5 |
+| DN-11 | `systemmodel` uses the `schema` import edge | §16 A5 / Q4 |
+| DN-12 | `FamilyProfile` carries the full §2.3 descriptive set | §16 A3 / Q6 |
+
+### Conformance verification
+
+- Baseline unchanged and green before implementation: **320 tests pass**; ruff,
+  format, build, and pre-commit clean.
+- No source or test file changes accompany this ratification record; the
+  implementation commits follow, one atomic commit at a time.
+
+---
+
 ## Known limitation
 
 Blueprint §8.1 Definition of Done requires the validator to "exit 0 on the
