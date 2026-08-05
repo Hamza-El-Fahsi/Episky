@@ -7,13 +7,17 @@ Forbidden responsibility: unsupported families promise no Facts
     (RFC-0021 §2.1); no behavior, no I/O; profile data only.
 """
 
+from collections.abc import Mapping
+from dataclasses import dataclass
 from enum import Enum, auto
 
 __all__ = [
     "DistributionFamily",
     "ECOSYSTEM_STATUS",
     "EcosystemStatus",
+    "FAMILY_PROFILES",
     "FAMILY_STATUS",
+    "FamilyProfile",
     "FamilyStatus",
     "PackageEcosystem",
 ]
@@ -162,4 +166,111 @@ ECOSYSTEM_STATUS: dict[PackageEcosystem, EcosystemStatus] = {
     PackageEcosystem.FLATPAK: EcosystemStatus.SECONDARY,
     PackageEcosystem.SNAP: EcosystemStatus.SECONDARY,
     PackageEcosystem.APPIMAGE: EcosystemStatus.SECONDARY,
+}
+
+
+@dataclass(frozen=True, slots=True)
+class FamilyProfile:
+    """The descriptive profile of a distribution family (RFC-0021 §2.3).
+
+    The conceptual statement of *what kind of machine this is*: the five
+    descriptive dimensions of §2.3, exactly as ratified (DN-12). The
+    profile is **descriptive, not prescriptive** — it states what the
+    family is like so the Assistant forms correct expectations; it is
+    never a configuration file and never code, and it carries no
+    behavior, no policy, and no inference. Only Supported and Planned
+    families have a profile; Unsupported, Experimental, and Out-of-Scope
+    families have none and promise no Facts (blueprint §7; RFC-0021
+    §2.1).
+
+    Exact constructor and method signatures are RFC-0020's to define
+    (DN-1); this type is the in-memory data shape only.
+
+    Attributes:
+        package_ecosystems: Which package manager and which containerized
+            or app formats are native, secondary, experimental, or
+            unsupported on the family (§2.3; §5). Statuses not stated
+            for the family are Unsupported (RFC-0021 §10 default).
+        init_contract: How services are defined and supervised; the
+            profile states the init requirement (§2.3; §3.1).
+        configuration_conventions: Where configuration lives and how it
+            is layered, at a family level (§2.3; §6.4).
+        release_model: Point releases vs. rolling; how "state" is
+            expected to evolve (§2.3; §6.2).
+        verification_conventions: Which capabilities the family's tooling
+            supports natively, in §7 capability terms (§2.3; §7).
+    """
+
+    package_ecosystems: Mapping[PackageEcosystem, EcosystemStatus]
+    init_contract: str
+    configuration_conventions: str
+    release_model: str
+    verification_conventions: str
+
+
+FAMILY_PROFILES: dict[DistributionFamily, FamilyProfile] = {
+    DistributionFamily.DEBIAN: FamilyProfile(
+        package_ecosystems={
+            PackageEcosystem.APT_DPKG: EcosystemStatus.NATIVE,
+            PackageEcosystem.FLATPAK: EcosystemStatus.SECONDARY,
+            PackageEcosystem.SNAP: EcosystemStatus.SECONDARY,
+            PackageEcosystem.APPIMAGE: EcosystemStatus.SECONDARY,
+            PackageEcosystem.DNF_RPM: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.PACMAN: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.ZYPPER: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.NIX: EcosystemStatus.UNSUPPORTED,
+        },
+        init_contract="systemd",
+        configuration_conventions="dpkg-managed files on Debian family",
+        release_model="point release",
+        verification_conventions="no native rollback (reverse transactions only)",
+    ),
+    DistributionFamily.RED_HAT: FamilyProfile(
+        package_ecosystems={
+            PackageEcosystem.DNF_RPM: EcosystemStatus.NATIVE,
+            PackageEcosystem.FLATPAK: EcosystemStatus.SECONDARY,
+            PackageEcosystem.SNAP: EcosystemStatus.SECONDARY,
+            PackageEcosystem.APPIMAGE: EcosystemStatus.SECONDARY,
+            PackageEcosystem.APT_DPKG: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.PACMAN: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.ZYPPER: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.NIX: EcosystemStatus.UNSUPPORTED,
+        },
+        init_contract="systemd",
+        configuration_conventions="systemd standard; dnf ecosystem",
+        release_model="point release",
+        verification_conventions="no native rollback (reverse transactions only)",
+    ),
+    DistributionFamily.ARCH: FamilyProfile(
+        package_ecosystems={
+            PackageEcosystem.PACMAN: EcosystemStatus.EXPERIMENTAL,
+            PackageEcosystem.APT_DPKG: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.DNF_RPM: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.ZYPPER: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.NIX: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.FLATPAK: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.SNAP: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.APPIMAGE: EcosystemStatus.UNSUPPORTED,
+        },
+        init_contract="systemd",
+        configuration_conventions="rolling-release model; distinct Package State model",
+        release_model="rolling",
+        verification_conventions="not promised (Planned)",
+    ),
+    DistributionFamily.OPENSUSE: FamilyProfile(
+        package_ecosystems={
+            PackageEcosystem.ZYPPER: EcosystemStatus.EXPERIMENTAL,
+            PackageEcosystem.APT_DPKG: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.DNF_RPM: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.PACMAN: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.NIX: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.FLATPAK: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.SNAP: EcosystemStatus.UNSUPPORTED,
+            PackageEcosystem.APPIMAGE: EcosystemStatus.UNSUPPORTED,
+        },
+        init_contract="systemd",
+        configuration_conventions="YaST conventions; distinct configuration culture",
+        release_model="Leap: point release; Tumbleweed: rolling",
+        verification_conventions="not promised (Planned)",
+    ),
 }
