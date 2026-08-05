@@ -15,6 +15,7 @@ __all__ = [
     "Collector",
     "ConfidenceSource",
     "Fact",
+    "FactCategory",
     "FactStatus",
     "Freshness",
     "FreshnessState",
@@ -24,6 +25,54 @@ __all__ = [
     "Subject",
     "Value",
 ]
+
+
+class FactCategory(Enum):
+    """The conceptual category of a Fact (RFC-0005 §10).
+
+    The twelve categories of the RFC-0005 §10 table, transcribed exactly
+    and in the table's order. A category organizes Facts so staleness,
+    scope, and presentation are treated uniformly per domain; it is a
+    concept, not a claim — a category never asserts anything about the
+    machine itself (RFC-0005 §10).
+
+    This is the **type only** (DN-9): `schema` owns the enumeration, and
+    RFC-0021 / `systemmodel` owns every meaning — the category→subsystem
+    mapping, the category→State-Domain mapping, and the architectural
+    semantics. This type carries no mapping, no subsystem knowledge, and
+    no behavior; `systemmodel` consumes it.
+
+    Members:
+        HARDWARE: Devices, firmware, identity of physical components.
+        KERNEL: Running kernel, modules, runtime parameters.
+        PACKAGES: Installed packages, versions, ecosystem, origins.
+        FILESYSTEM: Mounts, partitions, layout, usage.
+        SERVICES: Service units, running-state, enabled-state.
+        NETWORKING: Interfaces, addresses, routes, links.
+        STORAGE: Disks, volumes, logical volumes.
+        BOOT: Boot configuration, boot entries, kernel command line,
+            boot outcome.
+        LOGS: Log sources, log content relevant to the Goal, journal
+            state.
+        SECURITY: Accounts, credentials state, firewall,
+            security-relevant state.
+        CONFIGURATION: The machine's configurable settings and their
+            current values.
+        APPLICATIONS: User-facing applications, versions, presence.
+    """
+
+    HARDWARE = auto()
+    KERNEL = auto()
+    PACKAGES = auto()
+    FILESYSTEM = auto()
+    SERVICES = auto()
+    NETWORKING = auto()
+    STORAGE = auto()
+    BOOT = auto()
+    LOGS = auto()
+    SECURITY = auto()
+    CONFIGURATION = auto()
+    APPLICATIONS = auto()
 
 
 class FactStatus(Enum):

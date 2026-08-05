@@ -25,6 +25,7 @@ PUBLIC_SURFACE = {
         "Collector",
         "ConfidenceSource",
         "Fact",
+        "FactCategory",
         "FactStatus",
         "Freshness",
         "FreshnessState",
