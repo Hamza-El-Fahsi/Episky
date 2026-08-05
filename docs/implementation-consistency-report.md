@@ -3,9 +3,11 @@
 Tracks each implemented iteration against the frozen corpus: what was built,
 which RFC owns each type, which ambiguities were ratified, and what remains
 deferred. Iteration 0 bootstrapped the repository skeleton; Iteration 1
-implemented the `schema` package. This report is updated at the end of each
-iteration and verified against `docs/architecture-implementation-blueprint.md`
-and `docs/iteration-1-design-review.md`.
+implemented the `schema` package; Iteration 2 implemented the `systemmodel`
+layer plus the ratified `schema` change (DN-9). This report is updated at the
+end of each iteration and verified against
+`docs/architecture-implementation-blueprint.md`, the design reviews, and the
+decision notes.
 
 ---
 
@@ -225,68 +227,179 @@ and the design review.
 
 ---
 
-## Iteration 2 — ratification and consistency review (pre-implementation)
+## Iteration 2 — the `systemmodel` layer plus the `schema.FactCategory` change
 
 Iteration 2 implements the **System Model layer** (`systemmodel`, RFC-0021) plus
 an additive `schema` change (DN-9). Scope, DoD, and RFC basis are transcribed
-from blueprint §8.3 (systemmodel half). The full design review is
-`docs/iteration-2-design-review.md`; the ratified decisions are DN-7…DN-12 in
-`docs/implementation-decision-notes.md`.
+from blueprint §8.3 (systemmodel half; `trust` is deferred per DN-7). The full
+design review is `docs/iteration-2-design-review.md`; the ratified decisions are
+DN-7…DN-12 in `docs/implementation-decision-notes.md`. Plan Commit 7b
+(`CATEGORY_SUBSYSTEMS` / `CATEGORY_STATE_DOMAINS` mapping data) remains
+unimplemented and is recorded under "Remaining deferred items" below.
 
-### Short architectural consistency review
+### Commits
 
-The ratified Iteration 2 decisions were checked against the frozen corpus. The
-result is **consistent**: no RFC is modified, Layer-0 constraints hold, and no
-ownership changes beyond what the ratification assigns.
+| Commit | Content | RFC basis |
+|---|---|---|
+| `e6ef5e7` | Docs ratification: design review answers (Q1–Q6), DN-7…DN-12, decision notes | design review §17; DN-7…DN-12 |
+| `7dcd1c5` | `FamilyStatus` (5, DN-8), `DistributionFamily` (8), `FAMILY_STATUS` | RFC-0021 §2.1, §2.2 |
+| `9b81f45` | `PackageEcosystem` (8), `EcosystemStatus` (4), `ECOSYSTEM_STATUS` | RFC-0021 §5.1, §5.2 |
+| `70bf2a4` | `FamilyProfile` (frozen) + `FAMILY_PROFILES` (Supported/Planned only) | RFC-0021 §2.3, §3.1, §5, §6.2/§6.4, §7 (DN-12) |
+| `b6dcb5c` | Profile string fix: four conservative values → `"not stated (RFC-0021)"` | RFC-0021 §2.3 (per-field values not stated) |
+| `3c90535` | `MachineSubsystem` (12) | RFC-0021 §4.1, §4.2–§4.13 |
+| `00fd904` | `SUBSYSTEM_DEPENDENCIES` (immutable mapping) | RFC-0021 §4.2–§4.13 |
+| `aaa1999` | `StateDomain` (7) + `StateRepresentation` (frozen) + `SUBSYSTEM_STATE_REPRESENTATION` | RFC-0021 §6.2–§6.8, §6.10 |
+| `3fed706` | `FactCategory` enum in `schema/fact.py` (12; type only) | RFC-0005 §10; DN-9, DN-10 |
+| `c78d3b5` | Layer-1 conformance + ownership-boundary tests | blueprint §4.1, §4.2, §8.2, §10; design review §11, plan Commit 8 |
+| (this commit) | Iteration 2 consistency report completion | plan Commit 9 |
 
-- **Scope (DN-7).** Iteration 2 = `systemmodel` only; `trust` is deferred to its
-  own design review. Blueprint §4.1 (layers), §7 (trust DoD), and the `trust`
-  package are untouched. The blueprint §8.3 iteration pairing is a scheduling
-  statement, not an architecture rule; splitting the iteration changes no
-  dependency edge and no ownership.
-- **FamilyStatus (DN-8).** Five values including Experimental. Consistent with
-  RFC-0021 §2.2 (Immutable row), §2.4, and §5.1; the §2.1 four-word table is
-  read as supplemented, not contradicted. No §2.1 meaning is weakened.
-- **FactCategory type/semantics split (DN-9, amends DN-3).** The enum type lives
-  in `schema` (Layer 0, stdlib-only, type only); `systemmodel` owns the
-  category→subsystem and category→state-domain mappings and the meaning. This
-  satisfies RFC-0005 §10 ("category membership follows RFC-0021"), preserves
-  DN-3's "RFC-0021 sole owner" for semantics, keeps `Scope` category-free
-  (the §10 "part of Scope" binding is deferred), and keeps Layer 0 intact
-  (an enum needs no imports). No Accepted RFC is modified (RFC-0005/0021 Draft).
-- **Import edge (DN-11).** `systemmodel`→`schema` is an authorized blueprint
-  §4.1 edge; using it for `schema.FactCategory` adds no new dependency.
-- **Category set (DN-10).** RFC-0005 §10's 12 categories; the
-  Users↔Configuration reconciliation is mapping data, not an RFC change.
-- **Profile (DN-12).** The full §2.3 five-dimension set as descriptive data;
-  matches blueprint §7 ("profile data only") and §8.3 DoD (profile lookup for
-  Supported families).
-- **Gates.** No production behavior is introduced; vocabulary + data only
-  (blueprint §8.0). `systemmodel` stays Layer 1; its modules stay
-  `[profiles, subsystems]`; dependency-rule and package-tree tests remain green.
+### Final type → owning RFC mapping
 
-**Residual open items (reported, not resolved):** A6 (encoding §6.9
-independence as data), A7 (§4.14 summary graph vs §4.2–§4.13 clauses), A8
-(class-vs-family members: Immutable, Other distros), A9 (Draft rework risk).
-These are owned by RFC-0021 (Draft) and do not block Iteration 2.
+| Type | Module | Owning RFC section(s) | Protected by |
+|---|---|---|---|
+| `FamilyStatus` | `systemmodel/profiles` | RFC-0021 §2.1, §2.2 (DN-8) | supported-platform promise (§1.3) |
+| `DistributionFamily` | `systemmodel/profiles` | RFC-0021 §2.2 | supported-platform promise (§1.3) |
+| `FamilyProfile` | `systemmodel/profiles` | RFC-0021 §2.3 (DN-12) | supported-platform promise (§1.3) |
+| `FAMILY_STATUS`, `FAMILY_PROFILES` | `systemmodel/profiles` | RFC-0021 §2.2, §2.3 | supported-platform promise (§1.3) |
+| `PackageEcosystem`, `EcosystemStatus`, `ECOSYSTEM_STATUS` | `systemmodel/profiles` | RFC-0021 §5.1, §5.2 | ecosystem statuses |
+| `MachineSubsystem` | `systemmodel/subsystems` | RFC-0021 §4.1–§4.13 | subsystem boundaries |
+| `SUBSYSTEM_DEPENDENCIES` | `systemmodel/subsystems` | RFC-0021 §4.2–§4.13, §4.14 | subsystem boundaries |
+| `StateDomain` | `systemmodel/subsystems` | RFC-0021 §6.2–§6.8 | no two-owner representation rule |
+| `StateRepresentation`, `SUBSYSTEM_STATE_REPRESENTATION` | `systemmodel/subsystems` | RFC-0021 §6.10 | no two-owner representation rule |
+| `FactCategory` (enum) | `schema/fact` | RFC-0005 §10 (type only; DN-9) | category set per DN-10 |
+
+### Final public API surface of systemmodel
+
+Each module's `__all__` is exactly the canonical vocabulary its owning RFC
+assigns (design review §11; enforced by
+`tests/test_systemmodel_conformance.py`).
+
+| Module | Public surface |
+|---|---|
+| `profiles` | `DistributionFamily`, `ECOSYSTEM_STATUS`, `EcosystemStatus`, `FAMILY_PROFILES`, `FAMILY_STATUS`, `FamilyProfile`, `FamilyStatus`, `PackageEcosystem` |
+| `subsystems` | `MachineSubsystem`, `SUBSYSTEM_DEPENDENCIES`, `SUBSYSTEM_STATE_REPRESENTATION`, `StateDomain`, `StateRepresentation` |
+
+Enumerations: `FamilyStatus` (5: Supported, Planned, Experimental, Unsupported,
+Out of Scope); `DistributionFamily` (8: Debian, Red Hat, Arch, openSUSE,
+Immutable, Other distros, Non-Linux, Android); `PackageEcosystem` (8: apt/dpkg,
+dnf/rpm, pacman, zypper, nix, flatpak, snap, appimage); `EcosystemStatus` (4:
+Native, Secondary, Experimental, Unsupported); `MachineSubsystem` (12: Hardware,
+Boot, Kernel, Users, Services, Storage, Filesystems, Packages, Networking,
+Security, Logs, Applications); `StateDomain` (7: Package, Service, Configuration,
+Filesystem, Network, User, Security). `schema.FactCategory` (12) is documented
+in the Iteration 1 surface table (module `fact`).
+
+### Ownership boundaries
+
+- `profiles.py` owns only RFC-0021 §2/§5 profile vocabulary.
+- `subsystems.py` owns only §4/§6 subsystem/State-Domain vocabulary.
+- `schema` owns the `FactCategory` **type**; RFC-0021/`systemmodel` owns every
+  category **meaning** (mapping data; DN-9). No name is owned by two modules
+  (enforced by `test_systemmodel_conformance.py`).
+- `StateRepresentation` is the frozen in-memory carrier for the §6.10 mapping,
+  owned by `subsystems.py` like its sibling types.
+
+### Layer-1 conformance summary
+
+- Every `systemmodel` module imports only stdlib + the allowed `schema` edge
+  (blueprint §4.1; `ALLOWED["systemmodel"] = {"schema"}`).
+- No logic beyond vocabulary, immutable data types, and module-level data-table
+  constants: no functions, control flow, comprehensions, parsing, serialization,
+  or validation (AST no-logic scan; `test_systemmodel_conformance.py`).
+- Data tables are module-level constants: `FAMILY_STATUS`, `FAMILY_PROFILES`,
+  `ECOSYSTEM_STATUS` are dicts; `SUBSYSTEM_DEPENDENCIES` and
+  `SUBSYSTEM_STATE_REPRESENTATION` are immutable (`MappingProxyType`).
+- Dataclasses (`FamilyProfile`, `StateRepresentation`) are `frozen=True,
+  slots=True`.
+
+### Dependency graph confirmation
+
+- Package graph unchanged and acyclic — `tests/test_dependency_rules.py` (§4.1
+  allowed edges, §4.2 forbidden edges, declared + observed acyclicity) stays
+  green.
+- No reverse dependency: `schema` never imports `systemmodel` (explicit test in
+  `tests/test_systemmodel_conformance.py`).
+- The subsystem dependency graph (`SUBSYSTEM_DEPENDENCIES`) is model data, never
+  imported (design review §12). It is a DAG per RFC-0021 §4.14; no traversal or
+  acyclicity logic is encoded (data only, per the Commit 5 execution rules).
 
 ### Ratified decisions (DN-7 … DN-12)
 
-| Note | Decision | Resolves |
+| Note | Decision | Resolves | Embodied in |
+|---|---|---|---|
+| DN-7 | Iteration 2 = `systemmodel` only; `trust` deferred to its own review | §16 A10 / Q1 | scope of this iteration |
+| DN-8 | `FamilyStatus` five-valued, incl. Experimental | §16 A1 / Q2 | `7dcd1c5` |
+| DN-9 | `FactCategory` type in `schema`; semantics owned by `systemmodel`; amends DN-3 | §16 A4 / Q3 | `3fed706` (type); Commit 7b (meaning, deferred) |
+| DN-10 | Category set = RFC-0005 §10's 12; reconciliation via mapping | §16 A2 / Q5 | `3fed706`; Commit 7b (mapping, deferred) |
+| DN-11 | `systemmodel` uses the `schema` import edge | §16 A5 / Q4 | Commit 7b (deferred; edge allowed by blueprint §4.1) |
+| DN-12 | `FamilyProfile` carries the full §2.3 descriptive set | §16 A3 / Q6 | `70bf2a4` |
+
+### Implementation status of every planned commit
+
+Plan Commits 1–9 of the design review §16/§18, with status:
+
+| Plan | Commit | Status |
 |---|---|---|
-| DN-7 | Iteration 2 = `systemmodel` only; `trust` deferred to its own review | §16 A10 / Q1 |
-| DN-8 | `FamilyStatus` five-valued, incl. Experimental | §16 A1 / Q2 |
-| DN-9 | `FactCategory` type in `schema`; semantics owned by `systemmodel`; amends DN-3 | §16 A4 / Q3 |
-| DN-10 | Category set = RFC-0005 §10's 12; reconciliation via mapping | §16 A2 / Q5 |
-| DN-11 | `systemmodel` uses the `schema` import edge | §16 A5 / Q4 |
-| DN-12 | `FamilyProfile` carries the full §2.3 descriptive set | §16 A3 / Q6 |
+| Docs ratification | `e6ef5e7` | Done |
+| 1 family/status vocabulary | `7dcd1c5` | Done |
+| 2 ecosystem vocabulary | `9b81f45` | Done |
+| 3 Family Profile + data | `70bf2a4`, `b6dcb5c` (fix) | Done |
+| 4 machine subsystem vocabulary | `3c90535` | Done |
+| 5 subsystem dependency graph | `00fd904` | Done (data table; no acyclicity logic) |
+| 6 State Domain vocabulary + mapping | `aaa1999` | Done |
+| 7 `FactCategory` enum | `3fed706` | Done |
+| 7b category→subsystem/domain mapping | — | **Not implemented** (deferred; see below) |
+| 8 Layer-1 conformance | `c78d3b5` | Done |
+| 9 consistency report completion | this commit | Done |
+
+### Remaining deferred items
+
+| Deferred item | Owning future RFC / iteration | Notes |
+|---|---|---|
+| `CATEGORY_SUBSYSTEMS`, `CATEGORY_STATE_DOMAINS` mapping data keyed by `schema.FactCategory` | Plan Commit 7b; `systemmodel` | DN-9/DN-10/DN-11 ratified; the mapping is the semantic half of FactCategory and was not part of the implemented commit sequence |
+| `Scope` category binding | Iteration 3+ (fact-model binding) | RFC-0005 §10 binding, not a type; DN-9 defers it |
+| §6.9 independence/influence encoding | RFC-0021 (Draft); §16 A6 | explanatory, not normative; deliberately not encoded |
+| §4.14 vs §4.2–§4.13 graph reconciliation | RFC-0021 (Draft); §16 A7 | consistency item, open |
+| Class-vs-family members (Immutable, Other distros) | RFC-0021 (Draft); §16 A8 | open |
+| Draft rework risk | RFC-0021 acceptance / amendment; §16 A9 | all Iteration 2 types against Draft wording |
+| `trust` layer (T1–T12, S1–S8, Hostile) | RFC-0007; its own design review | DN-7 |
+| Iteration 1 deferred items (MachineIdentity RFC-0014, Observation model, RFC-0020 signatures, etc.) | as recorded in the Iteration 1 section | unchanged |
+
+### Known limitations
+
+- `SUBSYSTEM_DEPENDENCIES` and `SUBSYSTEM_STATE_REPRESENTATION` are declared
+  immutable at runtime (`MappingProxyType`), while the `profiles.py` data tables
+  (`FAMILY_STATUS`, `FAMILY_PROFILES`, `ECOSYSTEM_STATUS`) are plain dicts —
+  consistent with their design-review status as module-level constants (DN-1).
+- The four `FAMILY_PROFILES` string values that the RFC does not state
+  (`release_model` for Debian/Red Hat/openSUSE, `init_contract` for Arch) are
+  recorded as `"not stated (RFC-0021)"` rather than inferred (`b6dcb5c`).
+- The pre-existing validator error (RFC-0004 §470 `'S1'`) from Iteration 0/1 is
+  unchanged and unrelated to Iteration 2.
+- No commit in this iteration modifies any RFC; RFC-0005 and RFC-0021 remain
+  Draft.
 
 ### Conformance verification
 
-- Baseline unchanged and green before implementation: **320 tests pass**; ruff,
-  format, build, and pre-commit clean.
-- No source or test file changes accompany this ratification record; the
-  implementation commits follow, one atomic commit at a time.
+- **Tree** matches blueprint §2 exactly — `test_packages.py`.
+- **Dependency rules** (§4.1/§4.2) hold; declared and observed graphs acyclic —
+  `test_dependency_rules.py`.
+- **`systemmodel` is Layer 1**: stdlib/`schema` imports only, no logic beyond
+  vocabulary + data — `test_systemmodel_conformance.py`.
+- **Ownership boundaries** (blueprint §10) enforced: public surface equals the
+  design-review §11 map, defined by the owning module, no overlap —
+  `test_systemmodel_conformance.py`.
+- **Vocabulary conformance**: family (§2), ecosystem (§5), profile (§2.3),
+  subsystem (§4.1), dependencies (§4.2–§4.13), State Domains (§6.2–§6.8), §6.10
+  mapping — `tests/test_systemmodel_*.py`.
+- **`schema.FactCategory`** (12, type only) — `tests/test_schema_fact_category.py`.
+- **Full suite:** 396 tests pass; ruff, format, build, and pre-commit clean.
+
+No RFC was modified, no production code outside `systemmodel`/`schema` was
+touched, and no architecture was added beyond the ratified decisions. The
+`systemmodel` layer is complete per blueprint §8.3 (systemmodel half) and the
+design review, with the ratified Commit 7b mapping data deferred as recorded
+above.
 
 ---
 
@@ -301,7 +414,7 @@ rfc/RFC-0004-trust-and-authority-model.md:470: ERROR unknown invariant identifie
 ```
 
 RFC-0004 is Accepted and normative; fixing it requires an RFC-0003 amendment,
-so it is out of scope for Iteration 0 and Iteration 1 (no edits to accepted
-RFCs, per AGENTS.md hard rule 1). The validator is wired into CI as-is; the CI
-gate is expected to fail until the corpus is amended. It is unrelated to the
-`schema` package and to Iteration 1.
+so it is out of scope for Iterations 0–2 (no edits to accepted RFCs, per
+AGENTS.md hard rule 1). The validator is wired into CI as-is; the CI gate is
+expected to fail until the corpus is amended. It is unrelated to the `schema`
+package and to Iterations 1–2.
