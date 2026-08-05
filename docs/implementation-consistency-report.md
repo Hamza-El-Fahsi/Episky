@@ -4,8 +4,9 @@ Tracks each implemented iteration against the frozen corpus: what was built,
 which RFC owns each type, which ambiguities were ratified, and what remains
 deferred. Iteration 0 bootstrapped the repository skeleton; Iteration 1
 implemented the `schema` package; Iteration 2 implemented the `systemmodel`
-layer plus the ratified `schema` change (DN-9). This report is updated at the
-end of each iteration and verified against
+layer plus the ratified `schema` change (DN-9); Iteration 3 implemented the
+`factlayer` + `collectors` pipeline (blueprint §8.4). This report is updated at
+the end of each iteration and verified against
 `docs/architecture-implementation-blueprint.md`, the design reviews, and the
 decision notes.
 
@@ -403,75 +404,178 @@ above.
 
 ---
 
-## Iteration 3 — ratification and consistency review (pre-implementation)
+## Iteration 3 — the Fact Layer + Collectors pipeline
 
-Iteration 3 implements the **Fact Layer + Collectors pipeline**
-(`factlayer` + `collectors`, blueprint §8.4). The full design review is
-`docs/iteration-3-design-review.md`; the ratified decisions are DN-13…DN-23 in
-`docs/implementation-decision-notes.md`. **These decisions unblock Iteration 3
-implementation**: none of the eleven design-review questions (Q1–Q12) required
-an RFC amendment, a `schema` public surface change, a new module, or a new
-dependency edge.
+Iteration 3 implements the **Fact Layer + Collectors pipeline** (`factlayer` +
+`collectors`, blueprint §8.4) — the Layer-2 implementation half of the
+iteration. The full design review is `docs/iteration-3-design-review.md`; the
+ratified decisions are DN-13…DN-24 in
+`docs/implementation-decision-notes.md` (DN-13…DN-23 ratified at the
+pre-implementation review; DN-24 recorded with the implementation review for
+the C7 Scenario 30 realization). The pipeline is a **read-only scaffold**:
+deterministic collection of Observations (C1–C3), deterministic normalization
+into canonical Facts with provenance attached and freshness bookkeeping
+(C4–C5), and an in-memory Fact store with supersession and invalidation (C6),
+closed by a Layer-2 conformance and F-invariant suite (C7).
 
-### Short architectural consistency review
+### Commits
 
-The ratified Iteration 3 decisions were checked against the frozen corpus. The
-result is **consistent**: no RFC is modified, Layer-0/1/2 constraints hold, and
-no ownership changes beyond what the ratification assigns.
-
-- **Scope (DN-13).** Iteration 3 = `factlayer` + `collectors` only;
-  `verification` (RFC-0006) stays blueprint §8.5 (Iteration 4); `trust` stays
-  deferred (DN-7; RFC-0007 T6 consumed, no code). Blueprint §4.1 (layers),
-  §8.4/§8.5, and RFC-0005 §2 are honored. No new package, no new module beyond
-  the blueprint §2 tree.
-- **FactCategory/Scope (DN-14).** `schema.Scope` stays category-free (DN-9); the
-  RFC-0005 §10 "part of Scope" binding and freshness-per-category values are
-  deferred (RFC-0005 §12, §15 OQ6; RFC-0020). No Layer-0 surface change.
-- **ObservationReference (DN-15).** The schema marker stays the type of
-  `Provenance.observation`; the real Observation model is `factlayer`-internal.
-  No Layer-0→2 import (blueprint §4.1), no `schema` public-surface change, zero
-  semantic change to Provenance (Iteration 1 §17 #5).
-- **Dependencies (DN-15, DN-17).** `collectors` and `factlayer` import only
-  `schema`/`systemmodel` (+ `collectors` for `factlayer`) — the authorized
-  blueprint §4.1 Layer-2 edges. No forbidden edge, no reverse edge, graph acyclic
-  (`tests/test_dependency_rules.py`).
-- **Baseline (DN-17).** distro, kernel, package-state; package-state over the
-  two Native ecosystems (apt/dpkg, dnf/rpm) per RFC-0021 §5.2/§5.3.1;
-  Secondary/Experimental → Unsupported/Out-of-baseline, never Unavailable (F11).
-  One `CollectorSpec` per question (RFC-0003 §2.4).
-- **Authority.** `collectors` holds Observe (RFC-0004 §4.5); `factlayer` holds
-  Observe-as-consumer + Normalize + the Verify re-observation arm (RFC-0004
-  §4.6). Neither holds Propose/Infer/Approve/Execute/Refuse/Persist. No
-  authority leak; A4 (no mutation in any Collect) stays a DoD item and a test.
-- **Gates.** No production behavior is introduced beyond the ratified pipeline;
-  `factlayer`/`collectors` stay Layer 2; the package-tree and dependency-rule
-  tests remain green.
-
-**Residual open items (reported, not resolved):** none of Q1–Q12. Draft rework
-risk on RFC-0005/0021 remains a recorded risk (blueprint §9 #2), not a blocker.
-
-### Ratified decisions (DN-13 … DN-23)
-
-| Note | Decision | Resolves |
+| Commit | Content | RFC basis |
 |---|---|---|
-| DN-13 | Iteration 3 = `factlayer` + `collectors`; `verification`/`trust` out of scope | §11 Q1 |
-| DN-14 | `schema.Scope` stays category-free; §10 binding + freshness-per-category deferred to RFC-0020 | §11 Q2 |
-| DN-15 | `ObservationReference` stays the reference-only marker; Observation model is `factlayer`-internal | §11 Q3 |
-| DN-16 | Failure Facts name the Collector as confidence source | §11 Q4 |
-| DN-17 | Baseline = distro, kernel, package-state over Native ecosystems; one question per Collector | §11 Q5, Q6 |
-| DN-18 | Truncation mechanism with a placeholder default bound; value is RFC-0020 | §11 Q7 |
-| DN-19 | Fact store is the in-memory current set; no persistence | §11 Q8 |
-| DN-20 | Supersession on §6 component identity; no Identifier format | §11 Q9 |
-| DN-21 | Run timing not a separate field; provenance keeps `collected_at` | §11 Q10 |
-| DN-22 | Critical-failure status recorded here; disclose/ask decision is `core`'s | §11 Q11 |
-| DN-23 | DoD F10 conformance = attach-at-normalization + loss→Invalid | §11 Q12 |
+| `0f72345` | `CollectorSpec` + `COLLECTOR_SPECS` (baseline: distro, kernel, package-state) | RFC-0003 §2.4; RFC-0005 §2; DN-17 |
+| `ed50971` | `RawOutput`, `Observation` (bounded output, truncation marker) | RFC-0005 §2; DN-18 |
+| `e921133` | `collect()` — read-only run → Observation | RFC-0004 §4.5; RFC-0005 §2; A4 |
+| `f726d20` | `normalize()` — deterministic Observation → Fact | RFC-0005 §2, §4, §5; F5; DN-16 |
+| `5aa7071` | `build_provenance`, `freshness_state` | RFC-0005 §5, §12; F10; DN-21 |
+| `71244a8` | `FactStore`, `record`, supersession + invalidation | RFC-0005 §6, §7, §13, §14; DN-19, DN-20, DN-22, DN-23 |
+| `5061d59` | Layer-2 conformance + F-invariant suite (incl. Scenario 30 status) | design review §9.2, §9.3; F1/F5/F7/F8/F10/F11/F14/F15/F16; DN-24 |
+| (this commit) | Iteration 3 consistency report completion | plan Commit C8 |
+
+### 1. Iteration 3 implementation summary
+
+Exactly what was implemented — no implementation beyond C7.
+
+**Collectors** (`collectors/registry.py`)
+- `CollectorSpec` — the frozen, slot-based Collector contract (RFC-0003 §2.4):
+  one question, declared inputs, provenance behavior, declared output.
+- `COLLECTOR_SPECS` — the read-only baseline registry (`MappingProxyType`):
+  exactly three Collectors — distro, kernel, package-state (DN-17); it never
+  constructs a `schema` type.
+
+**Fact layer** (`factlayer/`)
+- `RawOutput` — the bounded raw utterance of one Collector run (frozen).
+- `Observation` — the timestamped, provenance-carrying record of one run
+  (frozen): raw output, Collector identity, `collected_at`, exit status, and
+  the truncation marker; a failed or inconclusive run still records (RFC-0002
+  §4.2).
+- `collect()` — the read-only entry point (A4): from a `CollectorSpec` + raw
+  result + timestamp, build the immutable Observation, bounded with the
+  truncation marker (DN-18); performs no system command and persists nothing.
+- `normalize()` — the F1 gate: pure, deterministic, per-Observation
+  Observation → Fact (F5); the Family Profile absorbs distro variance (F7);
+  the only construction path to a Fact's components (DN-2); status reached per
+  RFC-0005 §4 — Observed, Unknown (failed/unparseable, DN-16), Unsupported
+  (not-supported family/ecosystem, DN-24).
+- provenance — `build_provenance()` attaches provenance at normalization
+  (F10; DN-23), answering the five §5 questions via the reference-only
+  `ObservationReference` marker (DN-15).
+- freshness computation — `freshness_state()` with the placeholder default
+  bound (DN-14, DN-18): Current / Possibly stale / Stale; unknown freshness is
+  never Current (F15).
+- Fact Store — `FactStore` + `record()`: the in-memory current set for one
+  machine (DN-19); supersession on RFC-0005 §6 component identity when fresher
+  and at-least-as-strong evidence (DN-20); rule-violating Facts Invalid and
+  disclosed, never admitted (F10, F12, F16); the four pipeline statuses
+  Observed/Unknown/Unavailable/Unsupported supported and never collapsed (F11).
+
+### 2. Type ownership table
+
+Exact ownership (blueprint §10; enforced by `tests/test_factlayer_conformance.py`).
+
+| Owner | Owns |
+|---|---|
+| `collectors` | `CollectorSpec`, `COLLECTOR_SPECS` |
+| `factlayer.collect` | `RawOutput`, `Observation`, `collect` |
+| `factlayer.normalize` | `normalize`, the canonical definitions (`CANONICAL_DEFINITIONS`) |
+| `factlayer.provenance` | `build_provenance`, `freshness_state` |
+| `factlayer.store` | `FactStore`, `StoreRecord`, the supersession rules (with `FactIdentity`, `RetiredFact`, `StoreOutcome`, and the reason constants) |
+| `schema` (unchanged) | `Fact`, `Collector`, `Provenance`, `Scope`, `FactStatus`/`FreshnessState`, `Freshness`, `ObservationReference` marker |
+| `systemmodel` (unchanged) | `FamilyProfile`, `MachineSubsystem`, `StateDomain`, and the other Iteration 2 vocabulary |
+
+No name is owned by two modules; each public name is defined by its owning
+module; the internal placeholders (`MachineIdentity`, `ObservationReference`,
+`DEFAULT_OUTPUT_BOUND`, `DEFAULT_FRESHNESS_BOUND`) never appear in a public
+surface (DN-15, DN-18).
+
+### 3. Architectural conformance
+
+Iteration 3 satisfies:
+
+- **Blueprint §4.1** — Layer 2 edges only: `collectors` → {`schema`,
+  `systemmodel`}; `factlayer` → {`collectors`, `schema`, `systemmodel`} (+ each
+  package's own modules); the declared allowed graph and the observed import
+  graph are both acyclic.
+- **Blueprint §4.2** — no forbidden import: no `providers`, `executor`,
+  `policy`, `skills`, `context`, `audit`, `secrets`, `trust`, or `verification`
+  anywhere in the pipeline.
+- **Blueprint §8.4** — scope is `factlayer` + `collectors` only.
+- **Blueprint ownership map** — each module's public surface is exactly the
+  vocabulary its owning RFC assigns; no ownership drift (design review §10 #7).
+- **DN-13 … DN-24** — all ratified decisions honored (decision table above;
+  DN-24 in the decision notes).
+- **Layer boundaries** — `schema` and `systemmodel` never import the pipeline
+  (no reverse edge; Layer 0/1 never depend on Layer 2).
+- **Allowed imports** — stdlib + the authorized Layer-2 edges only; no
+  I/O-, concurrency-, or persistence-capable stdlib is imported.
+- **No forbidden imports** — none present.
+- **No trust** — RFC-0007 T6 is consumed by normalization (the pipeline's only
+  trust-upgrade step); no `trust` import (DN-7, DN-13).
+- **No verification** — RFC-0006 stays blueprint §8.5 (Iteration 4; DN-13).
+- **No persistence** — the store is the in-memory current set (DN-19); no
+  filesystem/network/socket/sqlite imports; no `open`/`print`/`subprocess`
+  calls at any scope (A4).
+- **No authority leakage** — neither package holds Propose/Infer/Approve/
+  Execute/Refuse/Persist; `collectors` holds Observe (RFC-0004 §4.5), `factlayer`
+  holds Observe-as-consumer + Normalize (RFC-0004 §4.6).
+- **No new dependency edges** — the package graph is unchanged and acyclic.
+
+### 4. RFC traceability
+
+| Commit | Content | RFC section(s) |
+|---|---|---|
+| C1 `0f72345` | `CollectorSpec`, `COLLECTOR_SPECS` | RFC-0003 §2.4; RFC-0005 §2 |
+| C2 `ed50971` | `RawOutput`, `Observation` | RFC-0005 §2 |
+| C3 `e921133` | `collect()` | RFC-0004 §4.5; RFC-0005 §2 |
+| C4 `f726d20` | `normalize()` | RFC-0005 §2, §4, §5 |
+| C5 `5aa7071` | provenance, freshness | RFC-0005 §5, §12 |
+| C6 `71244a8` | Fact Store | RFC-0005 §6, §7, §13, §14 |
+| C7 `5061d59` | Layer conformance + invariants | F1, F5, F7, F8, F10, F11, F14, F15, F16 |
+
+### 5. Remaining deferred work
+
+Recorded only; nothing is invented. Everything below belongs to later
+iterations:
+
+- **Iteration 4** — Verification (RFC-0006).
+- **Iteration 5+** — Trust (RFC-0007).
+- **RFC-0020 policy values** — output bounds, freshness-per-category bounds,
+  signatures, formats, Fact Identifier (DN-1, DN-14, DN-18, DN-20).
+- **Persistence** — durability and storage formats (DN-19; RFC-0012, RFC-0013).
+- **Real orchestration** — the pipeline as a runtime path (session
+  initialization prerequisites, core-execution Stage 9).
+- **Real collectors** — executable, machine-facing inspectors.
+- **Scheduler** — RFC-0002 runtime scheduling.
+- **Execution engine** — RFC-0004 §4.9; Iteration 6+.
+- **Core decisions** — the fail-closed disclose/ask decision on critical
+  failure (DN-22) and the Scenario 30 refusal/ask decision (RFC-0002 §2.3).
+
+### 6. Completion verdict
+
+- Iteration 3 implementation is **complete**.
+- **Layer 2 Definition of Done is satisfied** (blueprint §8.4; design review §9).
+- **C1–C8 are complete.**
+- Remaining work belongs to later iterations only.
 
 ### Conformance verification
 
-- Baseline green before implementation: **396 tests pass**; ruff, format, build,
-  and pre-commit clean.
-- No source or test file changes accompany this ratification record; the
-  implementation commits follow, one atomic commit at a time.
+- **Tree** matches blueprint §2 exactly — `test_packages.py`.
+- **Dependency rules** (§4.1/§4.2) hold; declared and observed graphs acyclic —
+  `test_dependency_rules.py`.
+- **Layer-2 conformance** — imports, no I/O at import, no forbidden
+  packages/stdlib, public surface == owned vocabulary, no placeholder leaks,
+  frozen/slotted dataclasses, only `normalize` constructs a `Fact` —
+  `test_factlayer_conformance.py`.
+- **Behavioral invariants** — F1/F5/F7/F8/F10/F11/F14/F15/F16 and Scenario 30
+  at the status level — `test_factlayer_invariants.py` and the C1–C6 suites
+  (`tests/test_factlayer_*.py`, `tests/test_collectors_registry.py`).
+- **Full suite:** 558 tests pass; ruff, format, build, and pre-commit are
+  clean.
+
+No RFC was modified, no production code outside `factlayer`/`collectors` was
+touched (and within them only the C7-exposed Unsupported path in
+`normalize.py`), and no architecture was added beyond the ratified decisions.
+The `factlayer` + `collectors` pipeline is complete per blueprint §8.4 and the
+design review.
 
 ---
 
@@ -486,7 +590,7 @@ rfc/RFC-0004-trust-and-authority-model.md:470: ERROR unknown invariant identifie
 ```
 
 RFC-0004 is Accepted and normative; fixing it requires an RFC-0003 amendment,
-so it is out of scope for Iterations 0–2 (no edits to accepted RFCs, per
+so it is out of scope for Iterations 0–3 (no edits to accepted RFCs, per
 AGENTS.md hard rule 1). The validator is wired into CI as-is; the CI gate is
 expected to fail until the corpus is amended. It is unrelated to the `schema`
-package and to Iterations 1–2.
+package and to Iterations 1–3.

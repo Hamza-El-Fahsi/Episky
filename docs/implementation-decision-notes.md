@@ -12,7 +12,7 @@
 > embodies it. Amending a note here amends no RFC; it is a re-ratified
 > implementation record, subject to the same review that ratified it. Iteration
 > 1 notes are DN-1…DN-6; Iteration 2 notes are DN-7…DN-12; Iteration 3 notes are
-> DN-13…DN-23 (see the iteration sections below).
+> DN-13…DN-24 (see the iteration sections below).
 
 ---
 
@@ -547,6 +547,40 @@ F10 as **provenance attached at normalization, never added later** (RFC-0005
 
 **Effect.** `provenance.py` attaches provenance at normalization; a Fact with
 lost provenance is invalidated, not re-attributed.
+
+## DN-24 — Scenario 30 status: Unsupported is reached at normalization for "not supported" family/ecosystem cases
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 3 implementation review) |
+| Date | 2026-08-05 |
+| Resolves | design review §9.3 (Failure → status); RFC-0005 §4 (Unsupported, "how it is reached"); failure-injection Scenario 30 |
+| Grounding | RFC-0005 §4; RFC-0021 §2.1, §2.2; RFC-0005 §13 F11; DN-17, DN-22 |
+| Embodied in | `5061d59` (Scenario 30 / F11 tests) and the `normalize` Unsupported path |
+
+**Decision.** Normalization reaches **Unsupported** (RFC-0005 §4) exactly when it
+matches a "not supported" family/ecosystem case, per the C7 realization of
+Scenario 30:
+
+- A `distro` identity naming a recognized family **with a Family Profile**
+  (Supported or Planned) is **Observed**; a recognized family **without a
+  profile** (Experimental, Unsupported, Out of Scope) is **Unsupported** and
+  carries the family name as its value (the machine *is* an unsupported
+  family); an **unrecognized** family output is **Unknown** (fail closed, never
+  guessed, never Observed).
+- `package-state` requires a promised Native ecosystem in the Family Profile:
+  present → **Observed**; absent → **Unsupported**; no Family Profile at all
+  (`None` — an unsupported family) → **Unsupported**, fail closed; the runtime
+  never fabricates a Family Profile for an unknown family (Scenario 30;
+  RFC-0021 §2.3).
+- Unsupported, Unknown, and Unavailable stay distinct and are never collapsed
+  (F11); an Unsupported Fact flows through the store as a valid current status
+  and is never degraded by a later Unknown or Unavailable claim.
+
+**Effect.** `normalize()` emits `FactStatus.UNSUPPORTED` for these cases — the
+C7 suite exposed that the scaffold could not reach Unsupported at all, and
+closed the gap (RFC-0005 §4 "how it is reached"). The fail-closed
+disclose/ask *decision* remains `core`'s (DN-22; RFC-0002 §2.3).
 
 ### Q1–Q12 question status
 
