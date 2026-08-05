@@ -3,18 +3,21 @@
 > **Document type:** Implementation decision log, not an RFC.
 > **Read this first:** These notes record implementation decisions ratified
 > during Iteration 1 (the `schema` package), Iteration 2 (the `systemmodel`
-> layer), and Iteration 3 (the `factlayer` + `collectors` pipeline). They define
+> layer), Iteration 3 (the `factlayer` + `collectors` pipeline), Iteration 4
+> (the `verification` layer), and Iteration 5 (the `trust` layer). They define
 > no new architecture, modify no RFC, and change no ownership (blueprint §10;
 > RFC-0004 §3). They fix the *reading* of ambiguities reported by the iteration
 > design reviews (`docs/iteration-1-design-review.md`,
 > `docs/iteration-2-design-review.md` §16, `docs/iteration-3-design-review.md`
-> §11, `docs/iteration-4-design-review.md` §8) so that a reported ambiguity
+> §11, `docs/iteration-4-design-review.md` §8,
+> `docs/iteration-5-design-review.md` §5) so that a reported ambiguity
 > cannot reappear in a later iteration. Each note names the ambiguity it
 > resolves, its RFC grounding, and the commit that embodies it. Amending a note
 > here amends no RFC; it is a re-ratified implementation record, subject to the
 > same review that ratified it. Iteration 1 notes are DN-1…DN-6; Iteration 2
 > notes are DN-7…DN-12; Iteration 3 notes are DN-13…DN-24; Iteration 4 notes are
-> DN-25…DN-34 (see the iteration sections below).
+> DN-25…DN-34; Iteration 5 notes are DN-35…DN-39 (see the iteration sections
+> below).
 
 ---
 
@@ -836,3 +839,164 @@ shipped as `bc3c4dd` (compare), `ac6da1d` (outcome), `a5fdf1a` (Layer-2
 conformance and V-invariant tests), and the Iteration 4 consistency-report
 commit — see `docs/implementation-consistency-report.md` (Iteration 4 section)
 and the implementation mapping in `docs/iteration-4-design-review.md` §10.
+
+---
+
+# Iteration 5 decision notes (Trust layer)
+
+The notes below record the Iteration 5 ratification (Operator, 2026-08-05) of
+the eight questions posed by `docs/iteration-5-design-review.md` §5 (Q1–Q8).
+They fix the reading of the reported ambiguities so that a reported ambiguity
+cannot reappear in a later iteration, and they **unblock Iteration 5
+implementation** (design review §6–§10 readiness). Three questions — Q4
+(promotion, T6), Q6 (sanitize result contract), Q8 (quarantine container
+scope) — are **resolved by the frozen corpus itself** and need no decision note;
+the remaining five are recorded as DN-35…DN-39. No question requires an RFC
+amendment, a `schema`/`systemmodel`/`factlayer`/`verification`/`secrets` change,
+a new module, or a new dependency edge. The notes define no new architecture,
+modify no RFC, and change no ownership the corpus did not already assign
+(blueprint §10).
+
+## DN-35 — Iteration 5 scope is the `trust` layer; `secrets` is postponed
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 5 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §5 Q1 |
+| Grounding | blueprint §8.3 (trust half), §8.6 (`secrets`); DN-7; RFC-0009 §16.3 (redaction consumes RFC-0007 sanitization); blueprint §4.1 (`trust` Layer 1; `secrets`→`trust` edge) |
+| Embodied in | Iteration 5 implementation plan (docs-ratification commit) |
+
+**Decision.** Iteration 5 executes as the **Trust Layer (`trust`) only** — the
+half of blueprint §8.3 that DN-7 deferred "to its own design review and
+iteration". The `secrets` package (RFC-0009, blueprint §8.6) is **postponed to
+the next iteration**; its scope is not dropped, and its dependency on `trust` is
+preserved (blueprint §4.1: `secrets → {schema, trust}`). The re-order is
+dependency-safe: `trust` is Layer 1, `secrets` is Layer 3, and `secrets` still
+precedes `context` (Iteration 8), so blueprint Risk #9's mitigation (the
+no-secrets boundary established before the Context/Provider join) is preserved.
+
+**Effect.** Iteration 5's Definition of Done and commit plan contain `trust`
+work (T9, T11/T12); the blueprint §8.6 `secrets` DoD (SC2–SC5, SC14, SC15) is
+not part of Iteration 5 and is renumbered to the following iteration. This note
+executes DN-7's promise and mirrors DN-13's scope-fixing pattern.
+
+## DN-36 — Category/domain vocabulary: enumerate RFC-0007's own; defer owned-elsewhere mechanics
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 5 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §5 Q2 |
+| Grounding | RFC-0007 §4 (trust domains, normative), §6 (information categories, normative), §6.10/§6.11/§6.12 (owned-elsewhere mechanics), §16.2 (output-size bounds → RFC-0005); DN-3/DN-9/DN-14 pattern (a binding deferred, never a placeholder; no duplicate naming) |
+| Embodied in | Iteration 5 implementation plan, Commit C1 |
+
+**Decision.** `trust/classes.py` enumerates as **vocabulary + default-posture
+data** the categories and domains whose *semantics* RFC-0007 owns outright — the
+categories classification needs: **Observation, Fact, Evidence, Hypothesis,
+Provider Output, User Input, Configuration, Logs, Metadata** (§6.1–§6.9) with
+the §4 trust domains that originate them, each carrying the §6 default class and
+the §4 default posture. The categories whose promotion/demotion **mechanics**
+belong to later RFCs are **deferred to their owning iterations**, never stubbed
+and never duplicated: **Secrets** (§6.10 → RFC-0009), **Skill Manifest**
+(§6.11 → RFC-0011), **Skill Code** (§6.12 → RFC-0011). Output-size bounds are
+RFC-0005's (§16.2) and are not data here.
+
+**Effect.** The data surface of `classes.py` carries exactly the
+RFC-0007-owned categories/domains and their defaults; no name whose meaning
+belongs to RFC-0009/0011 is defined here (one owner per name, RFC-0004 §3).
+Mirrors DN-3/DN-9/DN-10/DN-14.
+
+## DN-37 — Classification operates on an internal abstract datum; the `schema` edge stays latent
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 5 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §5 Q3 |
+| Grounding | RFC-0007 §4 (every datum originates in exactly one domain), §5 (held at a class), §6 (every datum categorized), §2 (architecture only; no APIs), §11 S7 (deterministic classification); DN-1 (in-memory types are implementation's); blueprint §4.1 (`trust`→`schema` edge allowed, not required); DN-28 precedent (`verification`→`systemmodel` edge latent) |
+| Embodied in | Iteration 5 implementation plan, Commit C1 |
+
+**Decision.** The classification entry in `trust/classes.py` operates on an
+**internal abstract datum record** — category + content + provenance state +
+origin `TrustDomain` — not on `schema.Fact` and not on a bare string. The origin
+domain is a **required input** (RFC-0007 §4: every datum originates in exactly
+one domain); the category determines the default class (§6). The allowed
+`trust → schema` import edge is **left latent** this iteration, mirroring DN-28
+(`verification`→`systemmodel`). A `schema.Fact`-bound adapter, if ever needed,
+is RFC-0020's (DN-1).
+
+**Effect.** `classify()` is type-free over the canonical `schema` vocabulary; the
+declared edge is authorized but unused; RFC-0007's determinism (S7) and
+one-origin rule are honored structurally. No new dependency is introduced.
+
+## DN-38 — Sanitizer scope: S3 neutralization primitives now; exact mechanics remain RFC-0012's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 5 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §5 Q5 |
+| Grounding | RFC-0007 §11 (S1–S8 principles), §16.1 (exact mechanics → RFC-0012), §16.6 (detection → RFC-0012); blueprint §8.3 DoD (T9, T11/T12 tests now); RFC-0009 §16.3 (redaction mechanics) |
+| Embodied in | Iteration 5 implementation plan, Commit C2 |
+
+**Decision.** `trust/sanitize.py` implements the **deterministic S3
+neutralization primitives** — control-character neutralization, ANSI-escape
+stripping, and Unicode taming — plus quoting/labeling of the contained form (S4)
+and bounding/truncation (S8), as the invariant-bearing core that makes T9/T11/T12
+testable now (blueprint §8.3 DoD). It implements **no summarization algorithms,
+no Provider View assembly, no detection heuristics, and no redaction catalogue**:
+those remain RFC-0012's (exact sanitization mechanics, §16.1) and RFC-0009's
+(redaction, §16.3). The primitives satisfy S7 (deterministic and testable) at
+the principle level; the *exact* per-character catalogue is RFC-0012's
+enforcement point, not this layer's.
+
+**Effect.** The sanitizer exists and is testable per blueprint §8.3 DoD without
+pre-empting RFC-0012's catalogue or RFC-0009's redaction. The layer's tests
+assert S1 (no upgrade), S6 (fail to Hostile), S7 (determinism), S8 (bounding),
+and the S5 no-secret boundary as an invariant, never a mechanism.
+
+## DN-39 — Hostile production paths: the fail-closed set only; detection is not this layer's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 5 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §5 Q7 |
+| Grounding | RFC-0007 §5 (Hostile = Untrusted plus positive signal), §9.6 (provenance loss → Untrusted or Hostile), §15.5–§15.8 (failure behaviour), §13 T11/T12, §16.6 (detection-vs-containment → RFC-0012); RFC-0002 invariant 13 (recording) |
+| Embodied in | Iteration 5 implementation plan, Commits C2/C3 |
+
+**Decision.** Within the trust layer, **Hostile is produced only by the
+deterministic fail-closed paths**: (1) a datum whose trust class cannot be
+established (no origin, no provenance, unparseable) → Hostile (T11, §15.5); (2)
+sanitization failure → Hostile (S6, T9); (3) provenance loss the layer must
+treat as suspicious → Hostile (§9.6) — otherwise provenance loss → Untrusted.
+The layer implements **no detection heuristics**: a *positive adversarial
+signal* is RFC-0012's detection stance (§16.6), a defense-in-depth bonus
+(RFC-0007 §10, §15.8), and no detector exists this iteration. This mirrors
+DN-31's pattern: the layer's *producible* Hostile set is fixed; detection-driven
+Hostile has no producer here.
+
+**Effect.** C2/C3 produce Hostile only via the three fail-closed paths; T11/T12
+are enforced as tests. No "recognition" code exists; §15.8's *recording* of a
+recognized attempt is the Audit's (RFC-0013, Iteration 7), and "recognition"
+itself is RFC-0012's.
+
+### Q1–Q8 question status
+
+| §5 Q | Subject | Status | Where resolved |
+|---|---|---|---|
+| Q1 | Iteration scope / roadmap re-order | **Ratified** | DN-35 (this file) |
+| Q2 | Category/domain enumeration scope | **Ratified** | DN-36 (this file) |
+| Q3 | Classification input / `schema` edge | **Ratified** | DN-37 (this file) |
+| Q4 | Promotion (T6): absent vs declared | **Resolved by corpus** | RFC-0007 §2, §3, §5.1, §8, §13 T6 — no `promote()` in `trust` |
+| Q5 | Sanitizer scope vs RFC-0012 | **Ratified** | DN-38 (this file) |
+| Q6 | Sanitize result contract | **Resolved by corpus** | RFC-0007 §11 S1/S6, §13 T8/T9, §15.6; RFC-0002 invariant 10; DN-1 |
+| Q7 | Hostile production paths | **Ratified** | DN-39 (this file) |
+| Q8 | Quarantine container scope | **Resolved by corpus** | RFC-0007 §15.5–§15.8; RFC-0002 invariant 13; RFC-0013; DN-19/DN-34 |
+
+All eight §5 questions are resolved — five as decision notes, three by the
+frozen corpus; none requires an RFC amendment, a `schema`/`systemmodel`/
+`factlayer`/`verification`/`secrets` change, a new module, or a new dependency
+edge. **Iteration 5 implementation is unblocked** (design review §10 readiness),
+pending only the implementation commits that follow.

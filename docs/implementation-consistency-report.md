@@ -820,13 +820,88 @@ layer is complete per blueprint §8.5 and the design review.
 
 ### Readiness for Iteration 5
 
-Iteration 5 (`secrets`, RFC-0009, blueprint §8.6) is **unblocked**: the
-verification layer is complete, the suite is green (632 tests), and no Iteration
-4 item blocks it. Iteration 5 begins with its own design review and ratification
-(per the Iteration 1–4 pattern) before implementing the `secrets` package
-(classifier, redactor, Secure Store interface; SC2–SC5, SC14, SC15). The
-deferrals above are `core`/RFC-0008/RFC-0013 obligations and are recorded, not
-Iteration 5 blockers.
+Iteration 5 (the `trust` layer, blueprint §8.3 trust half; DN-7) is
+**unblocked**: the verification layer is complete, the suite is green (632
+tests), and no Iteration 4 item blocks it. Iteration 5 begins with its own
+design review and ratification (per the Iteration 1–4 pattern) before
+implementing the `trust` package (trust classes, sanitizer S1–S8, Hostile
+quarantine). The deferrals above are `core`/RFC-0008/RFC-0013 obligations and
+are recorded, not Iteration 5 blockers. The `secrets` package (RFC-0009,
+blueprint §8.6) is postponed to the next iteration (DN-35).
+
+---
+
+## Iteration 5 — the `trust` layer (ratification, Commit C0)
+
+Iteration 5 implements the **Trust Layer** (`trust`, blueprint §8.3 trust half;
+RFC-0007) — the half of the iteration that DN-7 deferred to its own review. The
+full design review is `docs/iteration-5-design-review.md`; the ratified
+decisions are DN-35…DN-39 in `docs/implementation-decision-notes.md`. Commit C0
+is the **docs-ratification commit**: it answers all eight design-review
+questions (Q1–Q8) — five as decision notes, three by the frozen corpus — and
+**unblocks Iteration 5 implementation** (design review §10). No RFC is modified
+and no source code, test, or `schema` change is introduced here.
+
+### Q1–Q8 resolution summary
+
+| §5 Q | Subject | Resolution | Governing RFC / note |
+|---|---|---|---|
+| Q1 | Iteration scope / roadmap re-order | `trust` is Iteration 5; `secrets` postponed to next iteration (dependency-safe; Layer 1 before Layer 3, still before `context` Iteration 8) | **DN-35**; blueprint §8.3/§8.6; DN-7; RFC-0009 §16.3 |
+| Q2 | Category/domain enumeration scope | Enumerate RFC-0007-owned categories/domains (§6.1–§6.9, §4) as vocabulary + defaults; defer Secrets (→RFC-0009) and Skill Manifest/Code (→RFC-0011) | **DN-36**; RFC-0007 §4/§6/§6.10–§6.12 |
+| Q3 | Classification input / `schema` edge | Internal abstract datum record (category + content + provenance state + origin domain); origin domain required (§4); `schema` edge latent (DN-28 precedent) | **DN-37**; RFC-0007 §2/§4/§5/§6/S7; DN-1; blueprint §4.1 |
+| Q4 | Promotion (T6): absent vs declared | **No `promote()` in `trust`** — all three upward moves' mechanics are owned elsewhere (RFC-0005/0006/0011); join is not an upgrade; T6 enforced as an invariant test | Resolved by corpus: RFC-0007 §2, §3, §5.1, §8, §13 T6 |
+| Q5 | Sanitizer scope vs RFC-0012 | Implement the S3 neutralization primitives + S4/S8 now (blueprint §8.3 DoD); no summarization, detection, or redaction mechanics | **DN-38**; RFC-0007 §11/§16.1/§16.6; RFC-0009 §16.3 |
+| Q6 | Sanitize result contract | Label travels with text: result record carries class + status + provenance + reason; bare string would break T8; carrier is an in-memory type (DN-1) | Resolved by corpus: RFC-0007 §11 S1/S6, §13 T8/T9, §15.6; RFC-0002 invariant 10; DN-1 |
+| Q7 | Hostile production paths | Hostile only via the fail-closed paths (unclassifiable T11/§15.5; sanitization failure S6/T9; suspicious provenance loss §9.6); no detection heuristics (RFC-0012's stance) | **DN-39**; RFC-0007 §5/§9.6/§15.5–§15.8/§16.6, T11/T12 |
+| Q8 | Quarantine container scope | In-memory quarantine record (datum + reason + withheld/disclosed); durable recording deferred to RFC-0013 (Iteration 7, DN-34 precedent) | Resolved by corpus: RFC-0007 §15.5–§15.8; RFC-0002 invariant 13; RFC-0013; DN-19/DN-34 |
+
+### Ratified decisions (DN-35 … DN-39)
+
+| Note | Decision | Resolves |
+|---|---|---|
+| DN-35 | Iteration 5 = `trust` layer only; `secrets` postponed to next iteration | §5 Q1 |
+| DN-36 | Category/domain vocabulary: enumerate RFC-0007-owned (§6.1–§6.9); defer owned-elsewhere (secrets → RFC-0009, skill → RFC-0011) | §5 Q2 |
+| DN-37 | Classification over an internal abstract datum; origin domain required; `schema` edge latent | §5 Q3 |
+| DN-38 | S3 neutralization primitives + S4/S8 now; exact mechanics remain RFC-0012's | §5 Q5 |
+| DN-39 | Hostile produced only by the fail-closed paths; no detection heuristics | §5 Q7 |
+
+### Architectural consistency
+
+- **Scope (DN-35).** Iteration 5 = `trust` only. `trust` is Layer 1 (blueprint
+  §4.1); `secrets` (Layer 3, blueprint §8.6) is postponed and still precedes
+  `context` (Iteration 8), preserving Risk #9's mitigation. Blueprint §2 module
+  set `trust/{__init__,classes,sanitize,hostile}.py` is unchanged.
+- **Ownership (DN-36, DN-37).** `trust` owns RFC-0007. No name whose meaning
+  belongs to RFC-0009/0011 is defined here (RFC-0004 §3 one-owner rule). The
+  allowed `trust → schema` edge stays latent (DN-28 precedent); no new edge.
+- **Promotion (Q4).** No upgrade operation in `trust`; the only upward moves are
+  Observation→Fact (RFC-0005), Post-condition confirmation (RFC-0006), and
+  authenticated skill metadata (RFC-0011) — all owned elsewhere (RFC-0007 §3,
+  §5.1, §8, T6). Enforced as an invariant test.
+- **Sanitizer (DN-38) and result contract (Q6).** The sanitizer is containment,
+  not a trust grant (S1, T9); the result carries class + provenance (T8);
+  failure → Hostile (S6, T11). No redaction mechanism (RFC-0009) and no exact
+  catalogue (RFC-0012) are anticipated.
+- **Hostile (DN-39, Q8).** Fail-closed production paths only; quarantine is
+  in-memory; durable recording is RFC-0013's (Iteration 7). No detection
+  heuristics.
+- **Authority.** `trust` holds no authority from the RFC-0004 §7 matrix (no F
+  cell granted; it is an information-handling layer). It cannot "grant" trust —
+  it records the class a datum already has per RFC-0007's rules.
+- **Gates.** No production behavior is introduced at C0; the package-tree and
+  dependency-rule tests remain green.
+
+**Residual open items (reported, not resolved):** none of Q1–Q8. Draft rework
+risk on RFC-0007 (and RFC-0009/RFC-0011/RFC-0012, which own deferred parts of
+its §16 surface) remains a recorded risk (blueprint §9 #2), not a blocker. The
+pre-existing validator error (RFC-0004 §470 `'S1'`) is unchanged and unrelated.
+
+### Commit C0 status
+
+Commit C0 (this commit) is the Iteration 5 docs-ratification: decision notes
+DN-35…DN-39 and the Q1–Q8 resolution table above. **Iteration 5 implementation
+is unblocked** and proceeds with Commit C1 (`classes.py`: lattice +
+classification) once C0 is ratified, per the design review §6/§7 plan.
 
 ---
 
