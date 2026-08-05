@@ -24,9 +24,11 @@ from episky.schema.fact import (
     Value,
 )
 from episky.systemmodel.profiles import (
+    FAMILY_STATUS,
     DistributionFamily,
     EcosystemStatus,
     FamilyProfile,
+    FamilyStatus,
 )
 
 __all__ = [
@@ -72,6 +74,17 @@ def normalize(observation: Observation, family_profile: FamilyProfile) -> Fact:
     guessed value and never nothing. Per DN-16 the Unknown Fact's
     ConfidenceSource names the Collector that was attempted.
 
+    The **Unsupported** status (RFC-0005 §4, "how it is reached";
+    Scenario 30): when normalization matches a "not supported"
+    family/ecosystem case — a recognized but unsupported family
+    (RFC-0021 §2.1; no Family Profile exists), or a package-state claim
+    whose family has no promised native ecosystem — the result is an
+    **Unsupported** Fact, fail-closed: the machine lacks the capability
+    the check would describe, and the runtime never fabricates a Family
+    Profile for an unknown family. Unsupported, Unknown, and Unavailable
+    stay distinct and are never collapsed (F11). An unrecognized family
+    identity is Unknown (fail closed, never guessed), not Unsupported.
+
     The behavioral F1 gate (DN-2): this function is the **only**
     construction path to a Fact's components — status, provenance,
     confidence, and scope all derive from the supplied Observation. The
@@ -86,47 +99,62 @@ def normalize(observation: Observation, family_profile: FamilyProfile) -> Fact:
 
     Args:
         observation: The run to normalize; never mutated.
-        family_profile: The machine's Family Profile (RFC-0021 §2.3).
+        family_profile: The machine's Family Profile (RFC-0021 §2.3);
+            ``None`` when no profile exists (an unsupported family),
+            which fails closed as Unsupported for capability claims
+            (Scenario 30).
 
     Returns:
         An immutable canonical Fact: status Observed with the canonical
-        claim, or status Unknown with the attempted claim marked not
-        established (DN-16).
+        claim, status Unsupported when normalization matched a "not
+        supported" family/ecosystem case (RFC-0005 §4; Scenario 30), or
+        status Unknown with the attempted claim marked not established
+        (DN-16).
     """
     definition = CANONICAL_DEFINITIONS.get(observation.collector.name)
     output = observation.raw_output.output.strip()
     name = observation.collector.name
     value = None
+    status = None
     if definition is not None and observation.exit_status == 0:
-        if name == "distro" and output.upper() in {
-            member.name for member in DistributionFamily
-        }:
-            value = output.upper()
-        elif output and (
-            name == "kernel"
-            or (
-                name == "package-state"
-                and any(
-                    ecosystem_status == EcosystemStatus.NATIVE
-                    for ecosystem_status in family_profile.package_ecosystems.values()
-                )
-            )
-        ):
+        if name == "distro":
+            family_name = output.upper()
+            if family_name in {member.name for member in DistributionFamily}:
+                family = DistributionFamily[family_name]
+                if FAMILY_STATUS[family] in {
+                    FamilyStatus.SUPPORTED,
+                    FamilyStatus.PLANNED,
+                }:
+                    value = family_name
+                    status = FactStatus.OBSERVED
+                else:
+                    value = family_name
+                    status = FactStatus.UNSUPPORTED
+        elif output and name == "kernel":
             value = output
+            status = FactStatus.OBSERVED
+        elif output and name == "package-state":
+            if family_profile is None or not any(
+                ecosystem_status == EcosystemStatus.NATIVE
+                for ecosystem_status in family_profile.package_ecosystems.values()
+            ):
+                status = FactStatus.UNSUPPORTED
+            else:
+                value = output
+                status = FactStatus.OBSERVED
 
-    if value is None:
+    if status is None:
         subject, property_name = definition or ("machine", "unknown")
         value = "unknown"
         status = FactStatus.UNKNOWN
     else:
         subject, property_name = definition
-        status = FactStatus.OBSERVED
 
     return Fact(
         scope=Scope(
             subject=Subject(name=subject),
             property=Property(name=property_name),
-            value=Value(value=value),
+            value=Value(value=value or "unknown"),
         ),
         status=status,
         confidence=ConfidenceSource(
