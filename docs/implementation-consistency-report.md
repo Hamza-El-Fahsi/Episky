@@ -5,10 +5,11 @@ which RFC owns each type, which ambiguities were ratified, and what remains
 deferred. Iteration 0 bootstrapped the repository skeleton; Iteration 1
 implemented the `schema` package; Iteration 2 implemented the `systemmodel`
 layer plus the ratified `schema` change (DN-9); Iteration 3 implemented the
-`factlayer` + `collectors` pipeline (blueprint §8.4). This report is updated at
-the end of each iteration and verified against
-`docs/architecture-implementation-blueprint.md`, the design reviews, and the
-decision notes.
+`factlayer` + `collectors` pipeline (blueprint §8.4); Iteration 4 ratified the
+design review for the `verification` package (blueprint §8.5, DN-25…DN-34) and
+is not yet implemented. This report is updated at the end of each iteration and
+verified against `docs/architecture-implementation-blueprint.md`, the design
+reviews, and the decision notes.
 
 ---
 
@@ -576,6 +577,91 @@ touched (and within them only the C7-exposed Unsupported path in
 `normalize.py`), and no architecture was added beyond the ratified decisions.
 The `factlayer` + `collectors` pipeline is complete per blueprint §8.4 and the
 design review.
+
+---
+
+## Iteration 4 — ratification and consistency review (pre-implementation)
+
+Iteration 4 implements the **Verification Layer** (`verification`, blueprint
+§8.5). The full design review is `docs/iteration-4-design-review.md`; the
+ratified decisions are DN-25…DN-34 in
+`docs/implementation-decision-notes.md`. **These decisions unblock Iteration 4
+implementation**: none of the ten design-review questions (Q1–Q10) required an
+RFC amendment, a `schema`/`systemmodel`/`factlayer`/`collectors` change, a new
+module, or a new dependency edge.
+
+### Short architectural consistency review
+
+The ratified Iteration 4 decisions were checked against the frozen corpus. The
+result is **consistent**: no RFC is modified, Layer-0/1/2 constraints hold, and
+no ownership changes beyond what the ratification assigns.
+
+- **Scope (DN-25).** Iteration 4 = `verification` Compare + Outcome semantics
+  over already-normalized Facts only. Collect/Normalize stay `factlayer`'s
+  (RFC-0005 §2); the runtime obligation (RFC-0002 invariant 2; V2) and
+  Precondition revalidation (RFC-0006 §4; RFC-0008 P9/P10/P14) are `core`'s /
+  RFC-0008's. Blueprint §2 (module set) and §8.5 (RFC basis §5–§8) are honored.
+  No new package, no new module beyond the blueprint §2 tree.
+- **Comparable evidence (DN-26).** A Fact is comparable only when its status is
+  Observed or Verified (RFC-0005 §4); Unknown/Unavailable/Unsupported →
+  Unknown (RFC-0006 V9/V14), Contradicted → Contradicted (V7), Stale → excluded
+  (V4), Invalid → excluded (F16). Statuses stay distinct (F11).
+- **No store write (DN-27).** `verification` never imports the `factlayer`
+  store for writing; Compare/Outcome are pure (V8). The `Verified`-status write
+  and Outcome recording are runtime obligations (RFC-0002 §2.9).
+- **Scope implicit (DN-28).** No Verification Scope type; scope = the
+  Postcondition Subjects/Properties (RFC-0006 V10, §9.7). No
+  `systemmodel`-bound type.
+- **Single snapshot (DN-29).** `compare` consumes after-Facts + Postconditions;
+  before/after delta (RFC-0006 §9.1) deferred to the runtime. Consequence
+  recorded: No Observable Change is not producible from one snapshot.
+- **No confidence (DN-30).** Confidence computation is RFC-0020's (RFC-0006
+  §15 OQ1); V15 honored by never-upgrading.
+- **Outcome producers (DN-31).** The layer produces the Fact-determined
+  Outcomes; Interrupted is orchestration (RFC-0002 §2.9); Expired maps to
+  re-collect-or-Unknown (V4).
+- **Staleness (DN-32).** Compare trusts the Facts' freshness state (RFC-0005
+  §12, F14/F15); `PostCondition.freshness` is the declared bound. No
+  re-derivation (DN-4).
+- **Contradiction (DN-33).** Comparison-level rule in `compare.py` (same
+  Subject+Property, differing values, same freshness → Contradicted; RFC-0006
+  §7 rule 2, V7). RFC-0005 §8 relationship mechanics stay deferred (reported).
+- **Evidence record (DN-34).** In-memory OutcomeRecord (RFC-0006 V11/V12);
+  durable record/retention is RFC-0013's.
+- **Authority.** `verification` holds Verify (RFC-0004 §4.6) only — never
+  Propose/Infer/Approve/Execute/Refuse/Persist; the Executor never verifies
+  itself (RFC-0004 §4.9). No authority leak; V8 (read-only) stays a DoD item
+  and a test.
+- **Gates.** No production behavior is introduced before the implementation
+  commits; `verification` stays Layer 2; the package-tree and dependency-rule
+  tests remain green.
+
+**Residual open items (reported, not resolved):** none of Q1–Q10. Draft rework
+risk on RFC-0006 (and its Draft dependencies) remains a recorded risk (blueprint
+§9 #2), not a blocker. The pre-existing validator error (RFC-0004 §470 `'S1'`)
+is unchanged and unrelated.
+
+### Ratified decisions (DN-25 … DN-34)
+
+| Note | Decision | Resolves |
+|---|---|---|
+| DN-25 | Iteration 4 = `verification` Compare + Outcome semantics only; no Collect invocation, no Precondition modeling | §8 Q1 |
+| DN-26 | Comparable Fact status gate: Observed/Verified compare; failure statuses → Unknown; Contradicted → Contradicted; Stale/Invalid excluded | §8 Q2 |
+| DN-27 | No store write in Iteration 4; `Verified`-status write + Outcome recording are runtime obligations | §8 Q3 |
+| DN-28 | Verification Scope implicit via the Postconditions; no Scope type | §8 Q4 |
+| DN-29 | `compare` consumes after-Facts + Postconditions; before/after delta deferred to the runtime | §8 Q5 |
+| DN-30 | Verification Confidence computation deferred to RFC-0020; V15 by never-upgrade | §8 Q6 |
+| DN-31 | Produciable Outcomes = the Fact-determined values; Interrupted is the orchestrator's; Expired = re-collect-or-Unknown | §8 Q7 |
+| DN-32 | Staleness trusted from the Facts; `PostCondition.freshness` is the declared bound | §8 Q8 |
+| DN-33 | Contradiction is a comparison-level rule in `compare.py`; RFC-0005 §8 stays deferred | §8 Q9 |
+| DN-34 | Outcome evidence record is in-memory; durable recording deferred to RFC-0013 | §8 Q10 |
+
+### Conformance verification
+
+- Baseline green before implementation: **558 tests pass**; ruff, format, build,
+  and pre-commit clean.
+- No source or test file changes accompany this ratification record; the
+  implementation commits follow, one atomic commit at a time (C1 first).
 
 ---
 

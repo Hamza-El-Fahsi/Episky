@@ -2,17 +2,19 @@
 
 > **Document type:** Implementation decision log, not an RFC.
 > **Read this first:** These notes record implementation decisions ratified
-> during Iteration 1 (the `schema` package) and Iteration 2 (the `systemmodel`
-> layer). They define no new architecture, modify no RFC, and change no
-> ownership (blueprint §10; RFC-0004 §3). They fix the *reading* of ambiguities
-> reported by the iteration design reviews (`docs/iteration-1-design-review.md`
-> and `docs/iteration-2-design-review.md` §16, `docs/iteration-3-design-review.md`
-> §11) so that a reported ambiguity cannot reappear in a later iteration. Each
-> note names the ambiguity it resolves, its RFC grounding, and the commit that
-> embodies it. Amending a note here amends no RFC; it is a re-ratified
-> implementation record, subject to the same review that ratified it. Iteration
-> 1 notes are DN-1…DN-6; Iteration 2 notes are DN-7…DN-12; Iteration 3 notes are
-> DN-13…DN-24 (see the iteration sections below).
+> during Iteration 1 (the `schema` package), Iteration 2 (the `systemmodel`
+> layer), and Iteration 3 (the `factlayer` + `collectors` pipeline). They define
+> no new architecture, modify no RFC, and change no ownership (blueprint §10;
+> RFC-0004 §3). They fix the *reading* of ambiguities reported by the iteration
+> design reviews (`docs/iteration-1-design-review.md`,
+> `docs/iteration-2-design-review.md` §16, `docs/iteration-3-design-review.md`
+> §11, `docs/iteration-4-design-review.md` §8) so that a reported ambiguity
+> cannot reappear in a later iteration. Each note names the ambiguity it
+> resolves, its RFC grounding, and the commit that embodies it. Amending a note
+> here amends no RFC; it is a re-ratified implementation record, subject to the
+> same review that ratified it. Iteration 1 notes are DN-1…DN-6; Iteration 2
+> notes are DN-7…DN-12; Iteration 3 notes are DN-13…DN-24; Iteration 4 notes are
+> DN-25…DN-34 (see the iteration sections below).
 
 ---
 
@@ -602,3 +604,231 @@ disclose/ask *decision* remains `core`'s (DN-22; RFC-0002 §2.3).
 All eleven §11 questions are resolved as decision notes; none requires an RFC
 amendment. **Iteration 3 implementation is unblocked** (design review §12, §13
 readiness), pending only the implementation commits that follow.
+
+---
+
+# Iteration 4 decision notes (Verification layer)
+
+The notes below record the Iteration 4 ratification (Operator, 2026-08-05) of
+the ten questions posed by `docs/iteration-4-design-review.md` §8 (Q1–Q10).
+They fix the reading of the reported ambiguities so that a reported ambiguity
+cannot reappear in a later iteration, and they **unblock Iteration 4
+implementation** (design review §10–§12 readiness): none of Q1–Q10 requires an
+RFC amendment, a `schema`/`systemmodel`/`factlayer`/`collectors` change, a new
+module, or a new dependency edge. They define no new architecture, modify no
+RFC, and change no ownership the corpus did not already assign (blueprint §10).
+
+## DN-25 — Iteration 4 scope is `verification` Compare + Outcome semantics only
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 4 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §8 Q1 |
+| Grounding | RFC-0006 §6 (process), §4 (Preconditions); blueprint §2 (module set), §8.5 (RFC basis §5–§8); RFC-0005 §2 (Collect/Normalize); RFC-0002 §2.9 (Verification state), invariant 2 |
+| Embodied in | Iteration 4 implementation plan (docs-ratification commit) |
+
+**Decision.** Iteration 4 implements only the **Compare → Outcome** steps of the
+RFC-0006 §6 process, as semantics over already-normalized Facts. `verification`
+never invokes Collect, never models Preconditions (RFC-0006 §4), and never
+orchestrates. The runtime obligation (every executed action followed by a
+verification attempt; RFC-0002 invariant 2; V2) and Precondition revalidation
+(RFC-0006 §4; RFC-0008 P9/P10/P14) are `core`'s / RFC-0008's.
+
+**Effect.** `verification` stays within the blueprint §8.5 basis (§5–§8); no
+Collect invocation, no Precondition modeling, no orchestrator in this package.
+This mirrors the DN-13/DN-22 pattern (a decision owned by a later iteration).
+
+## DN-26 — Comparable Fact status gate
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 4 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §8 Q2 |
+| Grounding | RFC-0006 §3 (evidence = Facts with known provenance and freshness), §9, §13 V9/V14; RFC-0005 §4 (FactStatus), §13 F11/F16 |
+| Embodied in | Iteration 4 implementation plan (docs-ratification commit) |
+
+**Decision.** A Fact is comparable evidence only when its status is **Observed**
+(RFC-0005 §4) or **Verified** (a runtime-assigned status, DN-27). An
+**Unknown/Unavailable/Unsupported** Fact is missing evidence → outcome
+**Unknown** (RFC-0006 V9/V14); a **Contradicted** Fact → **Contradicted** (V7);
+a **Stale** Fact → excluded (V4); an **Invalid** Fact → excluded, fail-closed
+(F16). The eight statuses stay distinct (F11).
+
+**Effect.** Compare applies this status gate on input; the verdict for each
+Postcondition follows from the gate plus the value comparison (RFC-0006 §9.2).
+
+## DN-27 — No store write in Iteration 4; the Verified-status write is a runtime obligation
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 4 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §8 Q3 |
+| Grounding | RFC-0005 §4 (FactStatus.Verified); RFC-0006 V8, §6 (Compare read-only); RFC-0002 §2.9 (Verification state), invariant 2 (V2) |
+| Embodied in | Iteration 4 implementation plan (docs-ratification commit) |
+
+**Decision.** Iteration 4 writes **nothing** to the `factlayer` store. Compare
+and Outcome are pure functions. V8's "verification changes nothing but the
+Assistant's Fact store" is a *permission*, not an obligation; writing a
+`Verified` status or an Outcome into the store is a runtime obligation
+exercised by `core` (RFC-0002 §2.9) once it exists.
+
+**Effect.** `verification` never imports the store for writing; the store is
+read-only from Compare's perspective; `FactStatus.Verified` has no writer in
+this iteration (recorded, not invented).
+
+## DN-28 — Verification Scope is implicit via the Postconditions
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 4 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §8 Q4 |
+| Grounding | RFC-0006 §9.7 (scope follows the Postcondition), §11 (scope in RFC-0021 vocabulary), §14 (RFC-0021 referenced, not a dependency); RFC-0021 §11/§12; DN-9/DN-14 precedent |
+| Embodied in | Iteration 4 implementation plan (docs-ratification commit) |
+
+**Decision.** No explicit Verification Scope type in Iteration 4. Scope is the
+Subjects and Properties named by the declared Postconditions (RFC-0006 V10,
+§9.7). A scope type, if ever needed, is RFC-0020's.
+
+**Effect.** Compare covers exactly the Postcondition Subjects/Properties; no
+`systemmodel`-bound scope type is introduced (mirrors DN-9/DN-14: a binding,
+not a type).
+
+## DN-29 — Compare consumes after-Facts + Postconditions; before/after delta deferred
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 4 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §8 Q5 |
+| Grounding | RFC-0006 §9.1 (three Fact sets), §7 (Partially Successful, No Observable Change); RFC-0005 §15 OQ3 (before/after comparison) |
+| Embodied in | Iteration 4 implementation plan (docs-ratification commit) |
+
+**Decision.** In Iteration 4, `compare` takes the **after-execution Facts** and
+the declared **Postconditions**. The before-state Facts (RFC-0006 §9.1 set 1)
+and the before/after delta analysis are deferred to the runtime that passes
+before-state (`core`). Consequences (recorded, not implemented): Partially
+Successful is producible from after-Facts when multiple Postconditions partly
+hold (§7); **No Observable Change** requires before/after delta and is therefore
+not producible by Iteration 4's single-snapshot Compare.
+
+**Effect.** No before-Facts input in this iteration; the consequence for No
+Observable Change is recorded in the design review §10/§11 commit plan.
+
+## DN-30 — Verification Confidence computation deferred to RFC-0020
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 4 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §8 Q6 |
+| Grounding | RFC-0006 §12 (confidence levels), §15 OQ1 (comparison algorithms owned by RFC-0020), V15 |
+| Embodied in | Iteration 4 implementation plan (docs-ratification commit) |
+
+**Decision.** Iteration 4 does **not** compute verification confidence
+(RFC-0006 §12). V15 is honored by never upgrading an Outcome from insufficient
+or contradictory evidence. Confidence levels are derived mechanically (§12 rule
+4) as part of the comparison algorithms owned by RFC-0020 (RFC-0006 §15 OQ1).
+
+**Effect.** No confidence type is introduced; outcome determination is
+confidence-free (V15).
+
+## DN-31 — Produciable Outcomes; Interrupted/Expired are not Compare outputs
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 4 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §8 Q7 |
+| Grounding | RFC-0006 §7 (Outcome table), V3 (determinism), §9.6, V4; RFC-0002 §2.9 (Verification state) |
+| Embodied in | Iteration 4 implementation plan (docs-ratification commit) |
+
+**Decision.** Iteration 4's `compare`/`outcome` produce exactly the Outcomes
+determinable from the Facts compared: **Verified Success, Verified Failure,
+Partially Successful, Unknown, Contradicted** (and No Observable Change once
+before-state exists, DN-29). **Interrupted** arises from process cut-off
+(operator/reboot/watchdog) — orchestration (RFC-0002 §2.9); it is a value only
+(DN-5) with no producer here. **Expired** (freshness bound lapsed during
+verification) maps to re-collect-or-Unknown (V4), never a Compare output.
+
+**Effect.** The eight-value `VerificationOutcome` stays complete (DN-5); two
+members have no producer in this iteration, recorded.
+
+## DN-32 — Staleness trusted from the Facts; PostCondition.freshness is the declared bound
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 4 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §8 Q8 |
+| Grounding | RFC-0006 V4, §9.6, §5 (PostCondition freshness); RFC-0005 §12 (F14/F15, FreshnessState); DN-4 (verification owns semantics only) |
+| Embodied in | Iteration 4 implementation plan (docs-ratification commit) |
+
+**Decision.** Compare **reads** the Freshness state carried by each Fact
+(RFC-0005 §12) and does not re-derive staleness. A Fact whose freshness state is
+not Current is excluded (V4; F14/F15). `PostCondition.freshness` is the declared
+bound the comparison checks against (RFC-0006 §5).
+
+**Effect.** No staleness recomputation in `verification`; F14/F15 remain
+`factlayer`'s; the DN-4 ownership split is preserved.
+
+## DN-33 — Contradiction is a comparison-level rule; RFC-0005 §8 stays deferred
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 4 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §8 Q9 |
+| Grounding | RFC-0006 §7 rule 2, §8 (runtime response), V7; RFC-0005 §8 (deferred by Iteration 3) |
+| Embodied in | Iteration 4 implementation plan (docs-ratification commit) |
+
+**Decision.** In Iteration 4, **Contradicted** is produced by a
+comparison-level rule in `compare.py`: two comparable Facts over the same
+Subject and Property with differing values at the same freshness →
+Contradicted (RFC-0006 V7, §7 rule 2). RFC-0005 §8 Fact-relationship mechanics
+(the representation side) stay deferred. Reported, not amended: this narrows
+RFC-0006 §8's stated dependency on RFC-0005 §8 to the runtime response.
+
+**Effect.** Contradicted is reachable from within the layer; no RFC-0005 §8
+relationships are implemented.
+
+## DN-34 — Outcome evidence record is in-memory; durable recording deferred to RFC-0013
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 4 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §8 Q10 |
+| Grounding | RFC-0006 V11/V12, §7 rule 4; RFC-0013 (verification records); RFC-0012 (Outcomes as Context material); RFC-0006 §15 OQ5 |
+| Embodied in | Iteration 4 implementation plan (docs-ratification commit) |
+
+**Decision.** Iteration 4 carries an **in-memory OutcomeRecord** — the Outcome
+plus the Facts that determined it (RFC-0006 §7 rule 4) — as the `outcome`
+module's result. Durable recording, retention, and audit wiring are RFC-0013's
+(Iteration 7).
+
+**Effect.** V11/V12 are satisfied at the layer level (a verification attempt
+records its evidence and Outcome in memory); persistence is deferred.
+
+### Q1–Q10 question status
+
+| §8 Q | Subject | Status | Where resolved |
+|---|---|---|---|
+| Q1 | Iteration scope / process | **Ratified** | DN-25 (this file) |
+| Q2 | Comparable Fact status | **Ratified** | DN-26 (this file) |
+| Q3 | Verified-status writer / store write | **Ratified** | DN-27 (this file) |
+| Q4 | Verification Scope representation | **Ratified** | DN-28 (this file) |
+| Q5 | Before/after Fact sets | **Ratified** | DN-29 (this file) |
+| Q6 | Verification Confidence computation | **Ratified** | DN-30 (this file) |
+| Q7 | Interrupted/Expired producers | **Ratified** | DN-31 (this file) |
+| Q8 | Staleness boundary | **Ratified** | DN-32 (this file) |
+| Q9 | Contradiction representation | **Ratified** | DN-33 (this file) |
+| Q10 | Evidence record home | **Ratified** | DN-34 (this file) |
+
+All ten §8 questions are resolved as decision notes; none requires an RFC
+amendment, a `schema`/`systemmodel`/`factlayer`/`collectors` change, a new
+module, or a new dependency edge. **Iteration 4 implementation is unblocked**
+(design review §10–§12 readiness), pending only Commit C1 (the Compare commit).
