@@ -222,7 +222,7 @@ FAMILY_PROFILES: dict[DistributionFamily, FamilyProfile] = {
         },
         init_contract="systemd",
         configuration_conventions="dpkg-managed files on Debian family",
-        release_model="point release",
+        release_model="not stated (RFC-0021)",
         verification_conventions="no native rollback (reverse transactions only)",
     ),
     DistributionFamily.RED_HAT: FamilyProfile(
@@ -238,7 +238,7 @@ FAMILY_PROFILES: dict[DistributionFamily, FamilyProfile] = {
         },
         init_contract="systemd",
         configuration_conventions="systemd standard; dnf ecosystem",
-        release_model="point release",
+        release_model="not stated (RFC-0021)",
         verification_conventions="no native rollback (reverse transactions only)",
     ),
     DistributionFamily.ARCH: FamilyProfile(
@@ -252,7 +252,7 @@ FAMILY_PROFILES: dict[DistributionFamily, FamilyProfile] = {
             PackageEcosystem.SNAP: EcosystemStatus.UNSUPPORTED,
             PackageEcosystem.APPIMAGE: EcosystemStatus.UNSUPPORTED,
         },
-        init_contract="systemd",
+        init_contract="not stated (RFC-0021)",
         configuration_conventions="rolling-release model; distinct Package State model",
         release_model="rolling",
         verification_conventions="not promised (Planned)",
@@ -270,7 +270,7 @@ FAMILY_PROFILES: dict[DistributionFamily, FamilyProfile] = {
         },
         init_contract="systemd",
         configuration_conventions="YaST conventions; distinct configuration culture",
-        release_model="Leap: point release; Tumbleweed: rolling",
+        release_model="not stated (RFC-0021)",
         verification_conventions="not promised (Planned)",
     ),
 }
