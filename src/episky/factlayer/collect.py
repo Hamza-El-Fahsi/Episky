@@ -3,18 +3,26 @@
 Owner: RFC-0005 §2; RFC-0004 §4.5.
 Responsibility: run Collectors to produce Observations.
 Forbidden responsibility: never mutates the machine — read-only
-    (RFC-0003 §2.4).
+    (RFC-0003 §2.4); no mutation in any Collect (A4).
 """
 
 from dataclasses import dataclass
 from datetime import datetime
 
+from episky.collectors.registry import CollectorSpec
 from episky.schema.fact import Collector
 
 __all__ = [
     "Observation",
     "RawOutput",
+    "collect",
 ]
+
+# Placeholder default bound for Collector output (DN-18): output beyond
+# the bound is truncated and the Observation records the truncation. The
+# authoritative bound value is RFC-0020 policy; this constant is a
+# placeholder only and is not a per-Collector limit.
+DEFAULT_OUTPUT_BOUND: int = 4096
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,3 +83,50 @@ class Observation:
     collected_at: datetime
     exit_status: int
     truncated: bool = False
+
+
+def collect(
+    spec: CollectorSpec,
+    output: str,
+    exit_status: int = 0,
+    *,
+    collected_at: datetime,
+) -> Observation:
+    """Run one Collector and record the Observation of its run (RFC-0005 §2).
+
+    The collection stage of the Observation → Fact pipeline: from a
+    CollectorSpec and the raw result its deterministic inspection actually
+    emitted, build the immutable Observation record — the Collector's
+    identity (RFC-0005 §5), the ``collected_at`` timestamp (DN-21), the
+    exit status, and the bounded raw output with the truncation marker
+    (DN-18; never silently dropped, RFC-0005 §2).
+
+    The entry point is read-only — RFC-0004 §4.5 Observe, A4: it executes
+    no system command, mutates no machine state, and persists nothing.
+    The raw result is supplied to the stage; the stage only records it
+    under the Collector's declared identity. A non-zero ``exit_status``
+    still yields the Observation — the record that it failed — so a
+    failure never disappears (RFC-0002 §4.2).
+
+    This is the scaffold signature; the authoritative public signature is
+    RFC-0020's (DN-1; blueprint §5).
+
+    Args:
+        spec: The CollectorSpec whose declared identity names the run.
+        output: The raw bytes/text the Collector returned, unbounded.
+        exit_status: The run's exit status (default: success).
+        collected_at: When the run was collected (RFC-0005 §5).
+
+    Returns:
+        The immutable Observation of the run, with ``truncated`` set when
+        ``output`` exceeded the placeholder bound.
+    """
+    truncated = len(output) > DEFAULT_OUTPUT_BOUND
+    bounded = output[:DEFAULT_OUTPUT_BOUND] if truncated else output
+    return Observation(
+        raw_output=RawOutput(output=bounded),
+        collector=Collector(name=spec.name, version=spec.version),
+        collected_at=collected_at,
+        exit_status=exit_status,
+        truncated=truncated,
+    )
