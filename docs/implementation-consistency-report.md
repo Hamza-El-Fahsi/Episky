@@ -5,11 +5,11 @@ which RFC owns each type, which ambiguities were ratified, and what remains
 deferred. Iteration 0 bootstrapped the repository skeleton; Iteration 1
 implemented the `schema` package; Iteration 2 implemented the `systemmodel`
 layer plus the ratified `schema` change (DN-9); Iteration 3 implemented the
-`factlayer` + `collectors` pipeline (blueprint §8.4); Iteration 4 ratified the
-design review for the `verification` package (blueprint §8.5, DN-25…DN-34) and
-is not yet implemented. This report is updated at the end of each iteration and
-verified against `docs/architecture-implementation-blueprint.md`, the design
-reviews, and the decision notes.
+`factlayer` + `collectors` pipeline (blueprint §8.4); Iteration 4 implemented
+the `verification` layer (blueprint §8.5, DN-25…DN-34). This report is updated
+at the end of each iteration and verified against
+`docs/architecture-implementation-blueprint.md`, the design reviews, and the
+decision notes.
 
 ---
 
@@ -580,15 +580,132 @@ design review.
 
 ---
 
-## Iteration 4 — ratification and consistency review (pre-implementation)
+## Iteration 4 — the Verification layer
 
 Iteration 4 implements the **Verification Layer** (`verification`, blueprint
-§8.5). The full design review is `docs/iteration-4-design-review.md`; the
-ratified decisions are DN-25…DN-34 in
-`docs/implementation-decision-notes.md`. **These decisions unblock Iteration 4
+§8.5): deterministic Compare + Outcome semantics over already-normalized Facts,
+closed by a Layer-2 conformance and V-invariant suite. The full design review
+is `docs/iteration-4-design-review.md`; the ratified decisions are DN-25…DN-34
+in `docs/implementation-decision-notes.md`. **The ratification unblocked
 implementation**: none of the ten design-review questions (Q1–Q10) required an
 RFC amendment, a `schema`/`systemmodel`/`factlayer`/`collectors` change, a new
-module, or a new dependency edge.
+module, or a new dependency edge, and all four planned commits (C1–C4) shipped.
+The layer is a **pure, read-only scaffold** (V8, DN-27): it performs no Collect,
+writes nothing to any store, and holds the Verify authority (RFC-0004 §4.6)
+only.
+
+### Commits
+
+| Commit | Content | RFC basis |
+|---|---|---|
+| `866dbf5` | Docs ratification: design review answers (Q1–Q10), DN-25…DN-34, decision notes | design review §8, §9; DN-25…DN-34 |
+| `bc3c4dd` | `compare` — per-Postcondition verdicts | RFC-0006 §6, §9 |
+| `ac6da1d` | `outcome` — strictest-wins classification | RFC-0006 §7 |
+| `a5fdf1a` | Layer-2 conformance + V-invariant suite | RFC-0006 §6, §7, §8, §13 |
+| (this commit) | Iteration 4 consistency report completion | plan Commit C4 |
+
+### 1. Implementation summary
+
+Exactly what was implemented — no implementation beyond the plan.
+
+**Compare** (`verification/compare.py`)
+- `PostconditionVerdict` — the per-Postcondition verdict set (HELD /
+  NOT_HELD / UNKNOWN / CONTRADICTED), exhaustive and mutually exclusive for
+  one Postcondition (RFC-0006 §9).
+- `PostconditionResult` — the verdict for one declared Postcondition plus the
+  Facts that determined it (V11 evidence; empty when UNKNOWN); frozen,
+  slot-based.
+- `CompareResult` — one `PostconditionResult` per declared Postcondition in
+  declared order (V6, V10); frozen, slot-based.
+- `compare()` — the pure, deterministic Compare step (RFC-0006 §6, §9; V3):
+  Facts are canonical-sorted; each Postcondition is evaluated over exactly the
+  Facts in its scope — the same Subject and Property (§9.7, DN-28). A Fact is
+  comparable only when its status is Observed or Verified (DN-26) and its
+  freshness state is Current — factlayer's own determination (V4, F14/F15,
+  DN-32); `PostCondition.freshness` is the declared bound (RFC-0006 §5). No
+  comparable evidence → UNKNOWN (V9, V14). Contradiction is a
+  comparison-level rule: a Contradicted-status Fact wins, else conflicting
+  comparable values over the same Subject+Property → CONTRADICTED (DN-33, V7).
+
+**Outcome** (`verification/outcome.py`)
+- `OutcomeRecord` — the in-memory Outcome result (RFC-0006 §7 rule 4): the
+  Outcome plus the Facts that determined it (V11, DN-34); fields exactly
+  `outcome` + `evidence`; no confidence field (DN-30); frozen, slot-based.
+- `determine()` — the pure Outcome step (RFC-0006 §7): exactly one of the
+  eight `VerificationOutcome` values by the strictest-wins precedence (§7
+  rule 2) — Contradicted > Verified Failure > Unknown > Partially Successful
+  > Verified Success; reported verbatim, no silent upgrade (§7 rule 3); empty
+  Compare → Unknown (V14, fail-closed); never success without fresh Facts (V5,
+  V9); partial success is a distinct Outcome (V6); no confidence changes the
+  Outcome (V15, DN-30); never produces Interrupted or Expired (DN-31); no
+  store write (V8, DN-27).
+
+### 2. Type ownership table
+
+Exact ownership (blueprint §10; enforced by
+`tests/test_verification_conformance.py`).
+
+| Owner | Owns |
+|---|---|
+| `verification.compare` | `PostconditionVerdict`, `PostconditionResult`, `CompareResult`, `compare` |
+| `verification.outcome` | `OutcomeRecord`, `determine` |
+| `verification` | package surface (`compare`/`outcome`); RFC-0006 §6 process contract |
+| `schema` (unchanged) | `PostCondition`, `VerificationOutcome`, `Fact`/`FactStatus`/`Freshness` (DN-4, DN-5) |
+
+No name is owned by two modules; each public name is defined by its owning
+module. The DN-4/DN-5 two-owner boundary is honored: `schema` owns the
+`PostCondition`/`VerificationOutcome` types, `verification` owns the Compare
+evaluation and the Outcome classification semantics.
+
+### 3. Architectural conformance
+
+- **Blueprint §4.1** — Layer-2 edges only: `verification` → {`factlayer`,
+  `schema`, `systemmodel`} (+ stdlib); the declared allowed graph and the
+  observed import graph are both acyclic. In practice only the `schema` edge
+  is used today (DN-28 makes scope implicit; DN-27 forbids the store) — the
+  `factlayer`/`systemmodel` edges are allowed but not required.
+- **Blueprint §4.2** — no forbidden import: no `providers`, `executor`,
+  `policy`, `skills`, `context`, `audit`, `secrets`, `trust`, `core`, `cli`
+  anywhere in the layer (V3; never the LLM's or a Skill's assessment; the
+  Executor never verifies itself, RFC-0004 §4.9).
+- **Blueprint §8.5** — scope is `verification` only (DN-25): Compare + Outcome
+  semantics over normalized Facts; no Collect invocation, no Precondition
+  modeling, no orchestration.
+- **No I/O, no persistence, no mutation** — no filesystem/network/socket/
+  sqlite stdlib imports; no `open`/`print`/`exec`/`subprocess` calls at any
+  scope; frozen, slot-based results; Compare/Outcome are pure (V8, DN-27).
+- **No authority leakage** — `verification` holds Verify (RFC-0004 §4.6)
+  only; never Propose/Infer/Approve/Execute/Refuse/Persist.
+- **Package tree** — exactly `verification/{__init__,compare,outcome}.py`
+  (blueprint §2); no new module (`test_packages.py` unchanged).
+
+### 4. RFC traceability
+
+| RFC | Section | Implemented as |
+|---|---|---|
+| RFC-0006 | §5 Postconditions | Consumes `schema.PostCondition` (DN-4) as the fixed expected state (V10); `PostCondition.freshness` is the declared bound (DN-32) |
+| RFC-0006 | §6 Verification Process | The Compare→Outcome steps as pure functions over normalized Facts; Collect/Normalize are `factlayer`'s (DN-25) |
+| RFC-0006 | §7 Outcome Model | Deterministic mapping to the eight `VerificationOutcome` values; strictest-wins (§7 rule 2); verbatim, no silent upgrade (§7 rule 3) |
+| RFC-0006 | §8 Contradictions | Comparison-level conflict rule (DN-33); Contradicted stops the path (V7) |
+| RFC-0006 | §9 Evidence Comparison | Facts not text (§9.1–§9.5); scope follows the Postcondition (§9.7, DN-28); missing ≠ success (V9) |
+| RFC-0006 | §13 V1–V16 | V3, V4, V5, V6, V7, V8, V9, V10, V14, V15 enforced here; V2/V12/V13/V16 owned by the runtime (`core`) and flagged |
+| RFC-0002 | invariant 2 | Made *possible* (Compare exists); the runtime obligation is `core`'s |
+
+### 5. Implemented V-invariants
+
+| Invariant | Enforcement |
+|---|---|
+| V3 deterministic | canonical Fact sort in `compare`; pure `determine`; input-order reversal tests |
+| V4 no stale | Current-only freshness gate; non-Current Facts → UNKNOWN, never determine an Outcome |
+| V5 no false success | success requires every Postcondition HELD on fresh comparable Facts (V9) |
+| V6 partial distinct | per-Postcondition verdicts in declared order; PARTIALLY_SUCCESSFUL a distinct Outcome |
+| V7 contradiction wins | Contradicted-status Fact or conflicting values → CONTRADICTED; strictest-wins precedence |
+| V8 read-only | no store write, no mutation, no I/O; frozen/slotted results; inputs never modified |
+| V9 missing ≠ success | no comparable evidence → UNKNOWN; UNKNOWN beats PARTIALLY_SUCCESSFUL |
+| V10 fixed Postconditions | declared Postconditions consumed unchanged, one verdict each, never invented |
+| V11 evidence carried | every PostconditionResult/OutcomeRecord carries the determining Facts |
+| V14 never skip | empty/invalid input fail-closed to UNKNOWN; never absent, never assumed success |
+| V15 no confidence | no confidence field/computation (DN-30); outcome determination is confidence-free |
 
 ### Short architectural consistency review
 
@@ -656,12 +773,60 @@ is unchanged and unrelated.
 | DN-33 | Contradiction is a comparison-level rule in `compare.py`; RFC-0005 §8 stays deferred | §8 Q9 |
 | DN-34 | Outcome evidence record is in-memory; durable recording deferred to RFC-0013 | §8 Q10 |
 
+### 6. Remaining deferred work
+
+Recorded only; nothing is invented. Each item belongs to a later iteration:
+
+| Deferred item | Owning future RFC / iteration |
+|---|---|
+| Verification process invocation (execute → collect → compare → record) | `core` (RFC-0002 invariant 2, V2; RFC-0008) |
+| Precondition re-validation (RFC-0006 §4) | RFC-0008 P9/P10/P14; `core` |
+| Before/after delta analysis; No Observable Change | runtime passing before-state (DN-29) |
+| Verification Confidence computation | RFC-0020 (DN-30) |
+| Interrupted production (process cut-off) | RFC-0002 §2.9 orchestration (DN-31) |
+| Expired handling (re-collect) | runtime re-collection (V4, DN-31) |
+| `Verified`-status Fact write + Outcome recording in the store | runtime obligation (DN-27; RFC-0002 §2.9) |
+| Durable evidence/Outcome records, retention, audit wiring | RFC-0013 (Iteration 7) |
+| RFC-0005 §8 Fact-relationship mechanics (contradiction representation side) | RFC-0005 §8 (DN-33; deferred since Iteration 3) |
+| Verification Scope type, if ever needed | RFC-0020 (DN-28) |
+| RFC-0006 Draft rework risk | RFC-0006 acceptance / amendment (blueprint §9 #2) |
+
+### 7. Completion verdict
+
+- Iteration 4 implementation is **complete**.
+- **Layer-2 Definition of Done is satisfied** (blueprint §8.5; design review
+  §10): V3 (deterministic), V4 (no stale), V7 (contradiction wins), V10
+  (Postconditions fixed), V14 (never skip) all pass, each with a test.
+- **C1–C4 are complete.**
+- Remaining work belongs to later iterations only.
+
 ### Conformance verification
 
-- Baseline green before implementation: **558 tests pass**; ruff, format, build,
-  and pre-commit clean.
-- No source or test file changes accompany this ratification record; the
-  implementation commits follow, one atomic commit at a time (C1 first).
+- **Tree** matches blueprint §2 exactly — `test_packages.py`.
+- **Dependency rules** (§4.1/§4.2) hold; declared and observed graphs acyclic —
+  `test_dependency_rules.py`.
+- **Layer-2 conformance** — allowed imports only, no forbidden packages or
+  stdlib, no I/O at import, public surface == owned vocabulary, frozen/slotted
+  dataclasses, no top-level logic, package tree, lower layers never import
+  `verification` — `test_verification_conformance.py`.
+- **Behavioral invariants** — V3–V11, V14, V15 — `test_verification_invariants.py`;
+  §7 precedence + scenario mapping — `test_verification_scenarios.py`.
+- **Full suite:** 632 tests pass; ruff, format, build, and pre-commit are
+  clean.
+
+No RFC was modified, no production code outside `verification` was touched, and
+no architecture was added beyond the ratified decisions. The `verification`
+layer is complete per blueprint §8.5 and the design review.
+
+### Readiness for Iteration 5
+
+Iteration 5 (`secrets`, RFC-0009, blueprint §8.6) is **unblocked**: the
+verification layer is complete, the suite is green (632 tests), and no Iteration
+4 item blocks it. Iteration 5 begins with its own design review and ratification
+(per the Iteration 1–4 pattern) before implementing the `secrets` package
+(classifier, redactor, Secure Store interface; SC2–SC5, SC14, SC15). The
+deferrals above are `core`/RFC-0008/RFC-0013 obligations and are recorded, not
+Iteration 5 blockers.
 
 ---
 

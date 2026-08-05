@@ -304,9 +304,10 @@ to exactly one question. **Ratified as DN-25…DN-34 in
 
 ## 10. Atomic commit plan
 
-Recorded only; nothing is executed. Each commit: purpose, est. LOC, ownership,
-RFC sections, dependencies, Definition of Done. All keep CI green (ruff,
-pytest, dependency rules, package-tree test) and add conformance tests.
+Recorded at review time; **since executed** — every planned commit shipped as
+ratified (implementation mapping below). Each commit: purpose, est. LOC,
+ownership, RFC sections, dependencies, Definition of Done. All keep CI green
+(ruff, pytest, dependency rules, package-tree test) and add conformance tests.
 
 **C0 — `docs: ratify Iteration 4 design review decisions (DN-25..DN-34)`**
 *(precedes C1; mirrors Iterations 1–3)*
@@ -352,43 +353,65 @@ pytest, dependency rules, package-tree test) and add conformance tests.
 - Est. LOC: ~120 · Ownership: process (docs) · RFC sections: n/a · Depends: C3 ·
   DoD: report reflects ratified plan and deferrals.
 
+**Implementation mapping (executed).** Actual SHAs and LOC, recorded from the
+implementation (`iteration/4-verification`); C0 = the docs-ratification commit,
+C4 = the Iteration 4 consistency-report completion commit:
+
+| Plan | Commit | Status | Actual LOC |
+|---|---|---|---|
+| C0 | `866dbf5` | **Done** | ~773 (docs) |
+| C1 | `bc3c4dd` | **Done** | +217/−6 (`compare.py`, 219 lines) |
+| C2 | `ac6da1d` | **Done** | +117/−6 (`outcome.py`, 119 lines) |
+| C3 | `a5fdf1a` | **Done** | +1030 (3 test suites) |
+| C4 | (this commit) | **Done** | docs |
+| | | **Total pipeline (C1–C4)** | ~1376 (code + tests) |
+
+C3's actual (+1030) exceeds the ~200 estimate: the V-invariant and scenario
+suites enumerate each invariant and each §7 precedence/Outcome scenario
+separately. The overage is test-only and adds no production surface; C1/C2
+production LOC (336) stayed near the plan (340).
+
 ---
 
 ## 11. Estimated LOC
 
-| Commit | Est. LOC |
-|---|---|
-| C0 | ~790 (docs) |
-| C1 | ~180 |
-| C2 | ~160 |
-| C3 | ~200 |
-| C4 | ~120 |
-| **Total pipeline (C1–C4)** | **~660** |
-| **Total incl. ratification (C0)** | **~790** |
+| Commit | Est. LOC | Actual |
+|---|---|---|
+| C0 | ~790 (docs) | ~773 (docs) |
+| C1 | ~180 | +217 |
+| C2 | ~160 | +117 |
+| C3 | ~200 | +1030 (test-only; see §10 mapping) |
+| C4 | ~120 | docs |
+| **Total pipeline (C1–C4)** | **~660** | **~1376** |
+| **Total incl. ratification (C0)** | **~790** | **~2149** |
 
-Each commit <300 LOC; total pipeline LOC ≈ 660 over 4 commits.
+Each commit <300 LOC except C3 (the test suite, which intentionally exceeds the
+estimate — see §10). The production pipeline (C1–C2) came in at 336 lines vs.
+the 340 estimate; the pipeline overage is entirely the C3 test suites.
 
 ---
 
 ## 12. Readiness table
 
-Design-review-only; no code is written. **Process note:** the tree is on
-`iteration/3-fact-layer` (HEAD `b1f4116`, clean); branch `iteration/4-verification`
-does **not** exist and is required before any C-commit (AGENTS.md /
-CONTRIBUTING.md). No commits are made in this review.
+Design-review-only at record time; **all planned commits have since shipped**
+(branch `iteration/4-verification`, C0–C4 complete; implementation mapping in
+§10).
 
 | Commit | Status | Blocked by |
 |---|---|---|
-| C0 | **Blocked** | Q1–Q10 ratification |
-| C1 | **Blocked** | DN-25…DN-34 ratification (Q2, Q4, Q5, Q8, Q9) |
-| C2 | **Blocked** | DN-25…DN-34 ratification (Q3, Q6, Q7, Q10) |
-| C3 | **Blocked** | DN-25…DN-34 ratification (Q1), plus all of C1–C2 |
-| C4 | **Blocked** | C3 |
+| C0 | **Done** (`866dbf5`) | — |
+| C1 | **Done** (`bc3c4dd`) | — |
+| C2 | **Done** (`ac6da1d`) | — |
+| C3 | **Done** (`a5fdf1a`) | — |
+| C4 | **Done** (this commit) | — |
 
-**Overall: BLOCKED** pending ratification of Q1–Q10 (DN-25…DN-34). Highest-
-leverage: Q9 (contradiction without RFC-0005 §8), Q8 (staleness boundary), Q5
-(before/after surface), Q3 (store-write/Verified status). Nothing invented; all
-reported to their owning documents.
+**Overall: COMPLETE.** Q1–Q10 were ratified as DN-25…DN-34 and all four
+commits shipped; the `verification` layer satisfies the blueprint §8.5
+Definition of Done (V3, V4, V7, V10, V14 pass with tests). All implementation
+goals were achieved. Highest-leverage items (Q9 contradiction, Q8 staleness
+boundary, Q5 before/after surface, Q3 store-write) were resolved by the
+ratification and are recorded in the consistency report's deferral table; the
+runtime-side consequences are `core`'s.
 
 ---
 
@@ -437,6 +460,7 @@ implementation decisions detected and surfaced:** Q1–Q10.
 
 **Verdict.** The design review **passes as a translation**: it adds no
 architecture, invents no behavior, respects the gate, and reports every
-ambiguity to its owning document (blueprint §0, §11). Implementation of
-Iteration 4 is **blocked** until Q1–Q10 are answered and recorded as decision
-notes, exactly as Iterations 1–3 were ratified before implementation.
+ambiguity to its owning document (blueprint §0, §11). Q1–Q10 were answered and
+recorded as decision notes (DN-25…DN-34), exactly as Iterations 1–3 were
+ratified before implementation, and **Iteration 4 has been fully implemented**
+(C0–C4; §10 mapping) — the `verification` layer is complete per blueprint §8.5.

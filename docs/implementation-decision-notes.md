@@ -828,7 +828,11 @@ records its evidence and Outcome in memory); persistence is deferred.
 | Q9 | Contradiction representation | **Ratified** | DN-33 (this file) |
 | Q10 | Evidence record home | **Ratified** | DN-34 (this file) |
 
-All ten §8 questions are resolved as decision notes; none requires an RFC
+All ten §8 questions are resolved as decision notes; none required an RFC
 amendment, a `schema`/`systemmodel`/`factlayer`/`collectors` change, a new
 module, or a new dependency edge. **Iteration 4 implementation is unblocked**
-(design review §10–§12 readiness), pending only Commit C1 (the Compare commit).
+(design review §10–§12 readiness) and is now **complete**: the planned commits
+shipped as `bc3c4dd` (compare), `ac6da1d` (outcome), `a5fdf1a` (Layer-2
+conformance and V-invariant tests), and the Iteration 4 consistency-report
+commit — see `docs/implementation-consistency-report.md` (Iteration 4 section)
+and the implementation mapping in `docs/iteration-4-design-review.md` §10.
