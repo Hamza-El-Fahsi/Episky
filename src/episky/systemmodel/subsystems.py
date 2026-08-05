@@ -6,10 +6,13 @@ Responsibility: the subsystem and State-Domain vocabulary that
 Forbidden responsibility: no behavior; vocabulary only.
 """
 
+from collections.abc import Mapping
 from enum import Enum, auto
+from types import MappingProxyType
 
 __all__ = [
     "MachineSubsystem",
+    "SUBSYSTEM_DEPENDENCIES",
 ]
 
 
@@ -53,3 +56,72 @@ class MachineSubsystem(Enum):
     SECURITY = auto()
     LOGS = auto()
     APPLICATIONS = auto()
+
+
+SUBSYSTEM_DEPENDENCIES: Mapping[MachineSubsystem, frozenset[MachineSubsystem]] = (
+    MappingProxyType(
+        # The per-subsystem "Depends on" clauses of §4.2–§4.13, transcribed
+        # exactly. Data only: no traversal, no resolution, no ordering.
+        {
+            MachineSubsystem.HARDWARE: frozenset(),
+            MachineSubsystem.BOOT: frozenset({MachineSubsystem.HARDWARE}),
+            MachineSubsystem.KERNEL: frozenset(
+                {MachineSubsystem.HARDWARE, MachineSubsystem.BOOT}
+            ),
+            MachineSubsystem.USERS: frozenset(
+                {MachineSubsystem.FILESYSTEMS, MachineSubsystem.KERNEL}
+            ),
+            MachineSubsystem.SERVICES: frozenset(
+                {
+                    MachineSubsystem.BOOT,
+                    MachineSubsystem.USERS,
+                    MachineSubsystem.FILESYSTEMS,
+                    MachineSubsystem.NETWORKING,
+                }
+            ),
+            MachineSubsystem.STORAGE: frozenset(
+                {MachineSubsystem.HARDWARE, MachineSubsystem.KERNEL}
+            ),
+            MachineSubsystem.FILESYSTEMS: frozenset(
+                {MachineSubsystem.STORAGE, MachineSubsystem.KERNEL}
+            ),
+            MachineSubsystem.PACKAGES: frozenset(
+                {
+                    MachineSubsystem.FILESYSTEMS,
+                    MachineSubsystem.NETWORKING,
+                    MachineSubsystem.KERNEL,
+                }
+            ),
+            MachineSubsystem.NETWORKING: frozenset(
+                {
+                    MachineSubsystem.HARDWARE,
+                    MachineSubsystem.KERNEL,
+                    MachineSubsystem.SERVICES,
+                }
+            ),
+            MachineSubsystem.SECURITY: frozenset(
+                {
+                    MachineSubsystem.KERNEL,
+                    MachineSubsystem.PACKAGES,
+                    MachineSubsystem.SERVICES,
+                    MachineSubsystem.USERS,
+                }
+            ),
+            MachineSubsystem.LOGS: frozenset(
+                {
+                    MachineSubsystem.SERVICES,
+                    MachineSubsystem.BOOT,
+                    MachineSubsystem.KERNEL,
+                }
+            ),
+            MachineSubsystem.APPLICATIONS: frozenset(
+                {
+                    MachineSubsystem.FILESYSTEMS,
+                    MachineSubsystem.USERS,
+                    MachineSubsystem.PACKAGES,
+                    MachineSubsystem.NETWORKING,
+                }
+            ),
+        }
+    )
+)
