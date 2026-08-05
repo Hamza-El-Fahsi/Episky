@@ -10,6 +10,7 @@ Forbidden responsibility: provider-independent (F6),
 from collections.abc import Mapping
 
 from episky.factlayer.collect import Observation
+from episky.factlayer.provenance import build_provenance
 from episky.schema.fact import (
     ConfidenceSource,
     Fact,
@@ -17,9 +18,7 @@ from episky.schema.fact import (
     Freshness,
     FreshnessState,
     MachineIdentity,
-    ObservationReference,
     Property,
-    Provenance,
     Scope,
     Subject,
     Value,
@@ -47,14 +46,12 @@ CANONICAL_DEFINITIONS: Mapping[str, tuple[str, str]] = {
     "package-state": ("package", "installed"),  # RFC-0021 §6.2
 }
 
-# The shared opaque placeholders carried by every normalized Fact: the
-# Observation reference marker (DN-15 — schema owns the type, factlayer
-# instantiates it) and the Machine Identity marker (RFC-0014). Both are
-# deliberately empty, so a single instance is reused; sharing the marker
-# keeps F5 determinism exact — identical input yields an identical Fact —
-# without inventing identity or reference semantics before their owners
-# define them.
-_OBSERVATION_REFERENCE = ObservationReference()
+# The shared opaque placeholder carried by every normalized Fact: the
+# Machine Identity marker (RFC-0014). It is deliberately empty, so a
+# single instance is reused; sharing the marker keeps F5 determinism
+# exact — identical input yields an identical Fact — without inventing
+# identity semantics before its owner defines them. The Observation
+# reference marker is owned by provenance.py (DN-15).
 _MACHINE_IDENTITY = MachineIdentity()
 
 
@@ -135,11 +132,7 @@ def normalize(observation: Observation, family_profile: FamilyProfile) -> Fact:
         confidence=ConfidenceSource(
             name=f"{observation.collector.name}@{observation.collector.version}"
         ),
-        provenance=Provenance(
-            observation=_OBSERVATION_REFERENCE,
-            collector=observation.collector,
-            collected_at=observation.collected_at,
-        ),
+        provenance=build_provenance(observation),
         freshness=Freshness(state=FreshnessState.CURRENT),
         machine_identity=_MACHINE_IDENTITY,
     )
