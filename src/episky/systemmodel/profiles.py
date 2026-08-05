@@ -11,8 +11,11 @@ from enum import Enum, auto
 
 __all__ = [
     "DistributionFamily",
+    "ECOSYSTEM_STATUS",
+    "EcosystemStatus",
     "FAMILY_STATUS",
     "FamilyStatus",
+    "PackageEcosystem",
 ]
 
 
@@ -92,4 +95,71 @@ FAMILY_STATUS: dict[DistributionFamily, FamilyStatus] = {
     DistributionFamily.OTHER_DISTROS: FamilyStatus.UNSUPPORTED,
     DistributionFamily.NON_LINUX: FamilyStatus.OUT_OF_SCOPE,
     DistributionFamily.ANDROID: FamilyStatus.OUT_OF_SCOPE,
+}
+
+
+class EcosystemStatus(Enum):
+    """Status of a package ecosystem on a family (RFC-0021 §5.1).
+
+    The four ecosystem statuses of §5.1. Native and Secondary are the
+    statuses the MVP models concretely; Experimental ecosystems are
+    recognized but not promised; Unsupported ecosystems are not modeled
+    and may be misidentified. These are the *base* classifications of
+    the §5.2 table; the per-family status map (which ecosystem is
+    native/secondary/etc. on a given family) is part of the Family
+    Profile (RFC-0021 §2.3, plan Commit 3).
+
+    Members:
+        NATIVE: The family's primary, package-manager-native way to
+            install software; its Package State is modeled natively.
+        SECONDARY: Present on Supported families and installs software,
+            but is not the family's package manager; modeled as a
+            distinct Application-layer concern.
+        EXPERIMENTAL: Recognized and modeled conceptually, but not
+            promised to work correctly in the MVP.
+        UNSUPPORTED: Not modeled; may be misidentified.
+    """
+
+    NATIVE = auto()
+    SECONDARY = auto()
+    EXPERIMENTAL = auto()
+    UNSUPPORTED = auto()
+
+
+class PackageEcosystem(Enum):
+    """A package ecosystem of the Machine model (RFC-0021 §5.2).
+
+    The eight ecosystems of the §5.2 table, transcribed exactly. The
+    table is exhaustive for the MVP (RFC-0021 §10 #8).
+
+    Members:
+        APT_DPKG: apt / dpkg — the identity of the Debian family.
+        DNF_RPM: dnf / rpm — the identity of the Red Hat family.
+        PACMAN: pacman — Arch is Planned; experimental.
+        ZYPPER: zypper — openSUSE is Planned; experimental.
+        NIX: nix — content-addressed, declarative model; experimental.
+        FLATPAK: flatpak — an application-layer, sandboxed format.
+        SNAP: snap — an application-layer, sandboxed format.
+        APPIMAGE: appimage — a single-file, no-dependency format.
+    """
+
+    APT_DPKG = auto()
+    DNF_RPM = auto()
+    PACMAN = auto()
+    ZYPPER = auto()
+    NIX = auto()
+    FLATPAK = auto()
+    SNAP = auto()
+    APPIMAGE = auto()
+
+
+ECOSYSTEM_STATUS: dict[PackageEcosystem, EcosystemStatus] = {
+    PackageEcosystem.APT_DPKG: EcosystemStatus.NATIVE,
+    PackageEcosystem.DNF_RPM: EcosystemStatus.NATIVE,
+    PackageEcosystem.PACMAN: EcosystemStatus.EXPERIMENTAL,
+    PackageEcosystem.ZYPPER: EcosystemStatus.EXPERIMENTAL,
+    PackageEcosystem.NIX: EcosystemStatus.EXPERIMENTAL,
+    PackageEcosystem.FLATPAK: EcosystemStatus.SECONDARY,
+    PackageEcosystem.SNAP: EcosystemStatus.SECONDARY,
+    PackageEcosystem.APPIMAGE: EcosystemStatus.SECONDARY,
 }
