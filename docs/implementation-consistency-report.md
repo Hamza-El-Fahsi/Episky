@@ -403,6 +403,78 @@ above.
 
 ---
 
+## Iteration 3 — ratification and consistency review (pre-implementation)
+
+Iteration 3 implements the **Fact Layer + Collectors pipeline**
+(`factlayer` + `collectors`, blueprint §8.4). The full design review is
+`docs/iteration-3-design-review.md`; the ratified decisions are DN-13…DN-23 in
+`docs/implementation-decision-notes.md`. **These decisions unblock Iteration 3
+implementation**: none of the eleven design-review questions (Q1–Q12) required
+an RFC amendment, a `schema` public surface change, a new module, or a new
+dependency edge.
+
+### Short architectural consistency review
+
+The ratified Iteration 3 decisions were checked against the frozen corpus. The
+result is **consistent**: no RFC is modified, Layer-0/1/2 constraints hold, and
+no ownership changes beyond what the ratification assigns.
+
+- **Scope (DN-13).** Iteration 3 = `factlayer` + `collectors` only;
+  `verification` (RFC-0006) stays blueprint §8.5 (Iteration 4); `trust` stays
+  deferred (DN-7; RFC-0007 T6 consumed, no code). Blueprint §4.1 (layers),
+  §8.4/§8.5, and RFC-0005 §2 are honored. No new package, no new module beyond
+  the blueprint §2 tree.
+- **FactCategory/Scope (DN-14).** `schema.Scope` stays category-free (DN-9); the
+  RFC-0005 §10 "part of Scope" binding and freshness-per-category values are
+  deferred (RFC-0005 §12, §15 OQ6; RFC-0020). No Layer-0 surface change.
+- **ObservationReference (DN-15).** The schema marker stays the type of
+  `Provenance.observation`; the real Observation model is `factlayer`-internal.
+  No Layer-0→2 import (blueprint §4.1), no `schema` public-surface change, zero
+  semantic change to Provenance (Iteration 1 §17 #5).
+- **Dependencies (DN-15, DN-17).** `collectors` and `factlayer` import only
+  `schema`/`systemmodel` (+ `collectors` for `factlayer`) — the authorized
+  blueprint §4.1 Layer-2 edges. No forbidden edge, no reverse edge, graph acyclic
+  (`tests/test_dependency_rules.py`).
+- **Baseline (DN-17).** distro, kernel, package-state; package-state over the
+  two Native ecosystems (apt/dpkg, dnf/rpm) per RFC-0021 §5.2/§5.3.1;
+  Secondary/Experimental → Unsupported/Out-of-baseline, never Unavailable (F11).
+  One `CollectorSpec` per question (RFC-0003 §2.4).
+- **Authority.** `collectors` holds Observe (RFC-0004 §4.5); `factlayer` holds
+  Observe-as-consumer + Normalize + the Verify re-observation arm (RFC-0004
+  §4.6). Neither holds Propose/Infer/Approve/Execute/Refuse/Persist. No
+  authority leak; A4 (no mutation in any Collect) stays a DoD item and a test.
+- **Gates.** No production behavior is introduced beyond the ratified pipeline;
+  `factlayer`/`collectors` stay Layer 2; the package-tree and dependency-rule
+  tests remain green.
+
+**Residual open items (reported, not resolved):** none of Q1–Q12. Draft rework
+risk on RFC-0005/0021 remains a recorded risk (blueprint §9 #2), not a blocker.
+
+### Ratified decisions (DN-13 … DN-23)
+
+| Note | Decision | Resolves |
+|---|---|---|
+| DN-13 | Iteration 3 = `factlayer` + `collectors`; `verification`/`trust` out of scope | §11 Q1 |
+| DN-14 | `schema.Scope` stays category-free; §10 binding + freshness-per-category deferred to RFC-0020 | §11 Q2 |
+| DN-15 | `ObservationReference` stays the reference-only marker; Observation model is `factlayer`-internal | §11 Q3 |
+| DN-16 | Failure Facts name the Collector as confidence source | §11 Q4 |
+| DN-17 | Baseline = distro, kernel, package-state over Native ecosystems; one question per Collector | §11 Q5, Q6 |
+| DN-18 | Truncation mechanism with a placeholder default bound; value is RFC-0020 | §11 Q7 |
+| DN-19 | Fact store is the in-memory current set; no persistence | §11 Q8 |
+| DN-20 | Supersession on §6 component identity; no Identifier format | §11 Q9 |
+| DN-21 | Run timing not a separate field; provenance keeps `collected_at` | §11 Q10 |
+| DN-22 | Critical-failure status recorded here; disclose/ask decision is `core`'s | §11 Q11 |
+| DN-23 | DoD F10 conformance = attach-at-normalization + loss→Invalid | §11 Q12 |
+
+### Conformance verification
+
+- Baseline green before implementation: **396 tests pass**; ruff, format, build,
+  and pre-commit clean.
+- No source or test file changes accompany this ratification record; the
+  implementation commits follow, one atomic commit at a time.
+
+---
+
 ## Known limitation
 
 Blueprint §8.1 Definition of Done requires the validator to "exit 0 on the

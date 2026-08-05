@@ -6,12 +6,13 @@
 > layer). They define no new architecture, modify no RFC, and change no
 > ownership (blueprint §10; RFC-0004 §3). They fix the *reading* of ambiguities
 > reported by the iteration design reviews (`docs/iteration-1-design-review.md`
-> and `docs/iteration-2-design-review.md` §16) so that a reported ambiguity
-> cannot reappear in a later iteration. Each note names the ambiguity it
-> resolves, its RFC grounding, and the commit that embodies it. Amending a note
-> here amends no RFC; it is a re-ratified implementation record, subject to the
-> same review that ratified it. Iteration 1 notes are DN-1…DN-6; Iteration 2
-> notes are DN-7…DN-12 (see "Iteration 2 decision notes" below).
+> and `docs/iteration-2-design-review.md` §16, `docs/iteration-3-design-review.md`
+> §11) so that a reported ambiguity cannot reappear in a later iteration. Each
+> note names the ambiguity it resolves, its RFC grounding, and the commit that
+> embodies it. Amending a note here amends no RFC; it is a re-ratified
+> implementation record, subject to the same review that ratified it. Iteration
+> 1 notes are DN-1…DN-6; Iteration 2 notes are DN-7…DN-12; Iteration 3 notes are
+> DN-13…DN-23 (see the iteration sections below).
 
 ---
 
@@ -324,3 +325,246 @@ configuration file, and never code.
 expressed in RFC-0021's own vocabulary (§6.4, §7 capability terms) and are data
 only; they do not duplicate State-Domain or Capability *behavior*. Only
 Supported and Planned families have a profile (blueprint §7; RFC-0021 §2.1).
+
+---
+
+# Iteration 3 decision notes (Fact Layer + Collectors)
+
+The notes below record the Iteration 3 ratification (Operator, 2026-08-05) of
+the eleven questions posed by `docs/iteration-3-design-review.md` §11 (Q1–Q12).
+They fix the reading of the reported ambiguities so that a reported ambiguity
+cannot reappear in a later iteration, and they **unblock Iteration 3
+implementation**: none of Q1–Q12 requires an RFC amendment, a `schema` public
+surface change, a new module, or a new dependency edge. They define no new
+architecture, modify no RFC, and change no ownership the corpus did not already
+assign (blueprint §10).
+
+## DN-13 — Iteration 3 scope is `factlayer` + `collectors`; `verification` and `trust` are not in scope
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 3 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §11 Q1 |
+| Grounding | blueprint §8.4 (Iteration 3), §8.5 (Iteration 4); RFC-0005 §2; RFC-0006; RFC-0007 T6; DN-7 |
+| Embodied in | Iteration 3 implementation plan (docs-ratification commit) |
+
+**Decision.** Iteration 3 executes as the **`factlayer` + `collectors` pipeline
+for the baseline only** (blueprint §8.4). `verification` (RFC-0006) is blueprint
+§8.5 (Iteration 4) and is **strictly excluded**. The `trust` package is **not
+imported** (DN-7); the Observation→Fact trust-upgrade (RFC-0007 T6) is
+*consumed* by normalization as the pipeline's only trust-upgrade step, without
+any `trust` code.
+
+**Effect.** No commit builds `verification` or `trust`; both packages stay out
+of the import graph until their own iterations.
+
+## DN-14 — FactCategory stays out of Scope; the §10 binding and freshness-per-category defer to RFC-0020
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 3 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §11 Q2 |
+| Grounding | RFC-0005 §10, §12, §15 OQ6; DN-9; RFC-0020 |
+| Embodied in | Iteration 3 implementation plan (docs-ratification commit) |
+
+**Decision.** `schema.Scope` **remains category-free** (DN-9). Iteration 3 does
+**not** bind the RFC-0005 §10 category into the Fact/Scope; the "category is
+part of Scope" statement is a binding, not a type (DN-9), and the binding is
+deferred **beyond Iteration 3**. Freshness-per-category *bound values* are
+RFC-0020 policy (RFC-0005 §12, §15 OQ6); Iteration 3 implements the freshness
+*state* mechanism without a category.
+
+**Effect.** No change to `schema.Scope`; freshness bookkeeping is
+category-independent; freshness-per-category values are RFC-0020's.
+
+## DN-15 — `schema.ObservationReference` stays the reference-only marker; the Observation model is `factlayer`-internal
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 3 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §11 Q3; fulfils Iteration 1 §17 #5 |
+| Grounding | RFC-0005 §2, §5; blueprint §4.1 (Layer 0); DN-1; RFC-0020 |
+| Embodied in | Iteration 3 implementation plan (docs-ratification commit) |
+
+**Decision.** `schema.Provenance.observation` keeps the `schema`
+`ObservationReference` **reference-only marker**. The real `Observation` model
+lives in `factlayer` (Layer 2) and is **not** imported by `schema` (Layer 0) —
+no Layer-0→2 import is created (blueprint §4.1). `factlayer` instantiates the
+marker as the reference to the Observation a Fact was normalized from, and
+resolves it internally. The marker stays out of `schema.__all__`; no `schema`
+public surface changes. This honours the Iteration 1 placeholder's contract: the
+"zero semantic changes to Provenance" promise is satisfied by the reference-only
+marker under the Layer-0 rule.
+
+**Effect.** `Provenance.observation` remains typed to the schema marker (zero
+semantic change to Provenance); `Observation` is a `factlayer`-internal type;
+`tests/test_schema_conformance.py` is unchanged.
+
+## DN-16 — Failure Facts name the Collector as their confidence source
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 3 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §11 Q4 |
+| Grounding | RFC-0005 §3, §5; RFC-0004 A1 |
+| Embodied in | Iteration 3 implementation plan (docs-ratification commit) |
+
+**Decision.** An Unknown, Unavailable, or Unsupported Fact's `ConfidenceSource`
+names the **Collector/check that was attempted** — the Collector identity
+(RFC-0005 §5: the "who" is always a Collector). It is never a percentage and
+never an LLM estimate (RFC-0005 §3; RFC-0004 A1).
+
+**Effect.** Failure Facts carry `ConfidenceSource(name = the Collector that ran
+or failed)`; no numeric confidence exists.
+
+## DN-17 — Baseline set = distro, kernel, package-state over the Native ecosystems; one question per Collector
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 3 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §11 Q5, Q6 |
+| Grounding | RFC-0021 §5.1, §5.2, §5.3; RFC-0003 §2.4; RFC-0005 §2; blueprint §8.4 |
+| Embodied in | Iteration 3 implementation plan (docs-ratification commit) |
+
+**Decision.** The baseline Collector set is **distro, kernel, package-state**
+(blueprint §8.4). The package-state baseline covers **only the two Native
+ecosystems** (apt/dpkg, dnf/rpm; RFC-0021 §5.2, §5.3.1). Secondary (flatpak,
+snap, appimage) and Experimental (pacman, zypper, nix) ecosystems are **not**
+baseline Collectors; a machine that only offers them yields Unsupported /
+Out-of-baseline status, never Unavailable (F11). Granularity: **one
+`CollectorSpec` per baseline question** (RFC-0003 §2.4: a Collector "answers one
+specific question"), with per-ecosystem declarations allowed under one question.
+
+**Effect.** `collectors/registry.py` declares exactly three baseline
+`CollectorSpec`s; the package-state Collector declares Native-ecosystem scope.
+
+## DN-18 — Truncation mechanism with a placeholder default bound; the value is RFC-0020
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 3 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §11 Q7 |
+| Grounding | RFC-0005 §2, §15 OQ6; RFC-0020 |
+| Embodied in | Iteration 3 implementation plan (docs-ratification commit) |
+
+**Decision.** The truncation **mechanism** — bounded output with
+truncation-with-marker, never silently dropped (RFC-0005 §2) — is implemented.
+The concrete per-Collector size bound is a **placeholder default constant**; the
+authoritative bound value is RFC-0020 policy.
+
+**Effect.** `collect.py` enforces a default bound and records truncation in the
+Observation; the bound value remains RFC-0020's.
+
+## DN-19 — Fact store is the in-memory current set; no persistence
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 3 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §11 Q8 |
+| Grounding | RFC-0005 §7, §15 OQ2; RFC-0012; RFC-0013 |
+| Embodied in | Iteration 3 implementation plan (docs-ratification commit) |
+
+**Decision.** The Fact store is the **in-memory current set** only, with no
+durability and no persistence format. RFC-0005 §7 fixes lifecycle *meaning*,
+not storage; storage belongs to RFC-0012 (Context/Memory) and RFC-0013 (Audit).
+
+**Effect.** `store.py` implements lifecycle, status, and invalidation in memory;
+persistence is deferred.
+
+## DN-20 — Supersession on RFC-0005 §6 component identity; no Identifier format
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 3 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §11 Q9 |
+| Grounding | RFC-0005 §6, §7; RFC-0020 (Identifier) |
+| Embodied in | Iteration 3 implementation plan (docs-ratification commit) |
+
+**Decision.** A newer Fact supersedes an older one on the **RFC-0005 §6
+component identity** — same Machine Identity + Subject + Property — when it is
+fresher and its evidence is at least as strong; the older is retired with the
+newer recorded as successor. **No Identifier format or generation is invented**;
+the Identifier component remains RFC-0020's (Iteration 1 deferred item).
+
+**Effect.** `store.py` supersedes on component identity; no Identifier format.
+
+## DN-21 — Run timing is not a separate field; provenance keeps `collected_at`
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 3 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §11 Q10 |
+| Grounding | RFC-0005 §2; DN-1 |
+| Embodied in | Iteration 3 implementation plan (docs-ratification commit) |
+
+**Decision.** RFC-0005 §2 lists timing as Raw Output *content*; it is **not** a
+separate `Observation`/`RawOutput` field in Iteration 3 (omitted/None).
+Provenance keeps `collected_at`. The concrete in-memory type surface is
+implementation's per DN-1.
+
+**Effect.** `collect.py` records `collected_at` via provenance; no timing field.
+
+## DN-22 — Critical-failure status is recorded here; the disclose/ask decision is `core`'s
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 3 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §11 Q11 |
+| Grounding | RFC-0002 §2.3; RFC-0004 §3, §4.3; blueprint §8.4 |
+| Embodied in | Iteration 3 implementation plan (docs-ratification commit) |
+
+**Decision.** On a critical collector failure (e.g., cannot establish the
+distro), Iteration 3 records the **Unavailable** status only (RFC-0005 §4; F11).
+The disclose + ask-the-Operator *decision* is `core`'s (RFC-0002 §2.3; RFC-0004
+§4.3 owns Failure/Recovery), Iteration 10.
+
+**Effect.** `store.py` records the status; no disclose/ask wiring exists in
+Iteration 3.
+
+## DN-23 — DoD "F10 conformance" = provenance attached at normalization + loss → Invalid
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 3 ratification) |
+| Date | 2026-08-05 |
+| Resolves | design review §11 Q12 |
+| Grounding | RFC-0005 §5, §13 F10; blueprint §8.4 DoD |
+| Embodied in | Iteration 3 implementation plan (docs-ratification commit) |
+
+**Decision.** The blueprint §8.4 DoD phrase "F5/F6/F7/F8/F10 conformance" reads
+F10 as **provenance attached at normalization, never added later** (RFC-0005
+§5), with loss of provenance → Invalid, not re-attribution (§13 F10 test).
+
+**Effect.** `provenance.py` attaches provenance at normalization; a Fact with
+lost provenance is invalidated, not re-attributed.
+
+### Q1–Q12 question status
+
+| §11 Q | Subject | Status | Where resolved |
+|---|---|---|---|
+| Q1 | Iteration scope (`verification`/`trust`) | **Ratified** | DN-13 (this file) |
+| Q2 | FactCategory/Scope binding | **Ratified** | DN-14 (this file) |
+| Q3 | ObservationReference replacement | **Ratified** | DN-15 (this file) |
+| Q4 | ConfidenceSource on failure | **Ratified** | DN-16 (this file) |
+| Q5 | Baseline set contents | **Ratified** | DN-17 (this file) |
+| Q6 | Collector granularity | **Ratified** | DN-17 (this file) |
+| Q7 | Output-bound value | **Ratified** | DN-18 (this file) |
+| Q8 | Store persistence | **Ratified** | DN-19 (this file) |
+| Q9 | Supersession identity | **Ratified** | DN-20 (this file) |
+| Q10 | Timing in Observation | **Ratified** | DN-21 (this file) |
+| Q11 | Critical collector failure | **Ratified** | DN-22 (this file) |
+| Q12 | DoD F10 conformance reading | **Ratified** | DN-23 (this file) |
+
+All eleven §11 questions are resolved as decision notes; none requires an RFC
+amendment. **Iteration 3 implementation is unblocked** (design review §12, §13
+readiness), pending only the implementation commits that follow.
