@@ -152,7 +152,13 @@ def test_dependency_data_has_no_behavior():
 
 def test_dependency_public_surface_is_exactly_the_owned_vocabulary():
     mod = importlib.import_module("episky.systemmodel.subsystems")
-    assert set(mod.__all__) == {"MachineSubsystem", "SUBSYSTEM_DEPENDENCIES"}
+    assert set(mod.__all__) == {
+        "MachineSubsystem",
+        "SUBSYSTEM_DEPENDENCIES",
+        "SUBSYSTEM_STATE_REPRESENTATION",
+        "StateDomain",
+        "StateRepresentation",
+    }
 
 
 def test_dependency_public_names_are_defined_by_their_owning_module():
