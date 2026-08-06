@@ -1489,7 +1489,31 @@ deviation handling is recorded as `core`'s deferred item.
 All ten §10 questions are resolved as decision notes; none requires an RFC
 amendment, a `schema`/`systemmodel`/`trust`/`factlayer`/`verification`/`secrets`
 change, a new module, or a new dependency edge. **Iteration 7 implementation is
-unblocked** (design review §16 readiness): C0 is this docs-ratification commit,
-and C1–C5 (the `policy` package: `classify.py`, `gates.py`, `policy.py`,
-`tokens.py`, the conformance suite, and the closeout) remain to be implemented
-per design review §12–§14.
+unblocked** (design review §16 readiness) and is now **complete**: the planned
+commits shipped as `76f6476` (C1, risk classification), `b3e4b20` (C2, policy
+gates and evaluation), `3abe96c` (C3, policy token machinery), `720a20a` (C4,
+Layer-3 conformance and P-invariant tests), with this closeout commit (C5)
+recorded in `docs/implementation-consistency-report.md` (Iteration 7 section).
+
+### DN-45 … DN-54 completion status
+
+| Note | Decision | Status | Embodied in | Validated by |
+|---|---|---|---|---|
+| DN-45 | Iteration 7 = `policy` layer only; blueprint §8.7/§8.8 numbering superseded by DN-35/DN-40's re-order; blueprint text stands until RFC-0020 | **Implemented** | C0 (scope); C1–C4 | `policy` layer complete; `executor`/`audit` untouched |
+| DN-46 | `classify` consumes `schema.Action` + a referenced-Fact set; the `schema` edge is exercised | **Implemented** | C1 (`classify.py`) | `test_policy_classify.py`; exercised-edge conformance test |
+| DN-47 | Internal canonical risk-property vocabulary in `classify.py`; the `systemmodel`/State-Domain edge stays latent | **Implemented** | C1 (`RISK_PROPERTIES`) | `test_policy_classify.py`; latent-edge conformance test |
+| DN-48 | Token carries an opaque in-memory machine-state snapshot reference; the State-Domain diff is runtime-owned | **Implemented** | C3 (`tokens.py`) | `test_policy_tokens.py`; P8/P9 boundary tests |
+| DN-49 | `mint` requires an explicit decision input; no input or rejection mints nothing (P5); override only for Blocked (P10) | **Implemented** | C3 (`mint`) | `test_policy_tokens.py`; P5/P10 tests |
+| DN-50 | P13/I-13 satisfied as in-memory issuance records now; the durable Audit write is `audit`'s DoD | **Implemented** | C3 (`TokenRecord`) | `test_policy_tokens.py`; P13/I-13 tests |
+| DN-51 | Default-deny policy-loading mechanism now; the shipped contents are RFC-0020's | **Implemented** | C2 (`load`, `gates.py`) | `test_policy_gates.py`; `test_policy_evaluation.py` |
+| DN-52 | Standing approvals: representation + evaluation mechanism now; no shipped defaults | **Implemented** | C2 (`StandingApproval`) | `test_policy_evaluation.py`; P11 boundary tests |
+| DN-53 | Elevation risk-property → at least Consequential; token records bounds; mechanism is `executor`'s | **Implemented** | C1/C3 (`classify`, `Token`) | `test_policy_classify.py`; `test_policy_invariants.py` elevation tests |
+| DN-54 | Plan envelope: meet rule + envelope-scoped token now; re-presentation is `core`'s | **Implemented** | C1/C3 (`classify_plan`, `meet`, `mint`) | `test_policy_classify.py`; `test_policy_tokens.py`; `test_policy_invariants.py` meet tests |
+
+**Iteration 7 completion note.** All ratified Policy-layer decisions
+(DN-45…DN-54) are implemented and validated: the full suite is green (1722
+tests), the Layer-3 conformance and invariant suites
+(`test_policy_conformance.py`, `test_policy_invariants.py`) enforce the ratified
+readings, and the next iteration is the `executor` + `audit` layer (RFC-0004
+§4.8–§4.10; RFC-0013) that DN-45 shifted to follow `policy`. No new decision
+note is required for this closeout.

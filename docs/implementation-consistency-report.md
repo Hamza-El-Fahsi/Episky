@@ -1179,41 +1179,35 @@ Recorded only; nothing is invented. Each belongs to a later iteration:
 
 ---
 
-## Iteration 7 — the `policy` layer (ratified)
+## Iteration 7 — the `policy` layer (complete)
 
 Iteration 7 implements the **Policy Layer** (`policy`, RFC-0008; blueprint
 §8.7, re-ordered by DN-35/DN-40 so it follows `secrets` and precedes
 `executor` + `audit`, Iteration 8). The full design review is
 `docs/iteration-7-design-review.md`; the ratified decisions are DN-45…DN-54 in
-`docs/implementation-decision-notes.md`. Commit C0 (this commit) is the
-**docs-ratification commit** (answers all ten design-review questions Q1–Q10 as
-decision notes); C1–C3 will implement and test the layer, C4 the conformance
-suite, C5 the completion record. No RFC is modified, no module exists outside
-the blueprint §2 tree (the four `policy` modules are already scaffolded per
-blueprint §2), and no dependency edge is added beyond the declared
-`policy → {schema, trust, factlayer}` set (blueprint §4.1).
+`docs/implementation-decision-notes.md`. Commit C0 was the **docs-ratification
+commit** (answers all ten design-review questions Q1–Q10 as decision notes);
+C1–C4 implemented and tested the layer; C5 (this commit) records its
+completion. No RFC is modified, no module exists outside the blueprint §2 tree
+(the four `policy` modules were already scaffolded per blueprint §2), and no
+dependency edge is added beyond the declared, partially-latent
+`policy → {schema, trust, factlayer}` set (blueprint §4.1): only the `schema`
+edge is exercised (DN-46); `trust` and `factlayer` stay latent (DN-47).
 
-### Ratification summary
+### Commit mapping (C0–C5)
 
-- Q1–Q10 are **Ratified** as DN-45…DN-54 (`docs/implementation-decision-notes.md`).
-- Every answer derives from the frozen corpus. RFC-0008 §2 is architecture-only
-  ("no APIs, no pseudocode, no algorithms, no data formats"), so each DN
-  records an **implementation interpretation only** — never an architectural
-  expansion; none requires an RFC amendment.
-- The layer's load-bearing dependencies are **Accepted** (RFC-0001 §8.1–§8.12;
-  RFC-0002 §6.2, §9 invariants 1, 6, 7, 10, 11, 12, 13, 15; RFC-0004 §4.7/§4.8/
-  §7/§8; RFC-0007 §4.4, §5.1). RFC-0008 itself is Draft, whose rework risk is
-  accepted per blueprint §9 #2 (the DN posture of Iterations 1–6); RFC-0021
-  (the State-Domain vocabulary RFC-0008 §6 cites) stays latent per DN-47.
-- Cross-component obligations (P1, P11, P12, the durable half of P13, the
-  RFC-0002 §6.2 consultation edges, and the SC9/SC10 boundaries carried from
-  DN-43) are recorded against `executor`/`audit`/`core`, not dropped.
-- Readiness: **READY for C1** — the design review §16 status is Ratified, and
-  C1 (deterministic risk classification) is unblocked.
+| Commit | Message | Content |
+|---|---|---|
+| C0 `991da01` | `docs: ratify Iteration 7 design review decisions` | Design-review ratification: Q1–Q10 resolved, DN-45…DN-54 recorded |
+| C1 `76f6476` | `feat(policy): implement deterministic risk classification` | `classify.py`: the four risk classes and four gates (§6), the canonical `RISK_PROPERTIES` vocabulary (DN-47), deterministic `classify` over `schema.Action` + Facts (P2, P3), the carried gate (P4), `meet` and `classify_plan` (DN-54), elevation to at least Consequential (DN-53) — 87 tests |
+| C2 `b3e4b20` | `feat(policy): implement policy gates and deterministic policy evaluation` | `gates.py` (the fixed gate table, `gate_for`) + `policy.py` (default-deny `load`, `decide`, `allowlisted`, `retry_ceiling`, `standing_approval_applies` with `StandingApproval` (DN-52), `ElevationBound` (DN-53); DN-51) — 100 tests |
+| C3 `3abe96c` | `feat(policy): implement deterministic policy token machinery` | `tokens.py`: `mint` on an explicit decision only (P5; DN-49), in-memory issuance/override/auto-permit/rejection records (P13; DN-50), the scoped single-use `Token` with its binding (action/time/state/session; P6–P8), `consume`/`invalidate`/`validate`/`revalidate` (P7–P9, P14), override-scoped tokens with their reason (P10; DN-49), plan-envelope tokens (DN-54), deterministic per-class `expiry_for` — 82 tests |
+| C4 `720a20a` | `test(policy): enforce Layer-3 conformance and policy invariants` | `test_policy_conformance.py` (53 tests) + `test_policy_invariants.py` (67 tests): Layer-3 rules, P1–P14, I-11, RFC-0001 §8.2, cross-layer invariants |
+| C5 `(this commit)` | `docs: record Iteration 7 completion and policy conformance` | This closeout |
 
-### Q1–Q10 verdict table
+### Q1–Q10 resolution summary
 
-| §10 Q | Subject | Verdict | Governing RFC / note |
+| §10 Q | Subject | Resolution | Governing RFC / note |
 |---|---|---|---|
 | Q1 | Iteration scope / renumbering vs blueprint §8.7/§8.8 | `policy` is Iteration 7; `executor`+`audit` shift to Iteration 8; blueprint §8.7/§8.8 numbering superseded, blueprint text stands until RFC-0020 | **DN-45**; DN-35/DN-40; blueprint §8.7/§8.8; RFC-0000 §4/§7 |
 | Q2 | `classify` input: `schema.Action` + referenced Facts vs internal input | `schema.Action` + a referenced-Fact set; the `schema` edge is exercised (unlike DN-37/DN-44, which applied where no canonical object existed) | **DN-46**; RFC-0008 §5/§6; blueprint §4.1 |
@@ -1226,45 +1220,174 @@ blueprint §2), and no dependency edge is added beyond the declared
 | Q9 | Elevation representation | Elevation risk-property → at least Consequential; token records bounds; mechanism/revocation is `executor.elevation` (Iteration 8) | **DN-53**; RFC-0008 §8/§13 P12; RFC-0001 §8.6; RFC-0021 §3.3 |
 | Q10 | Plan envelope: meet rule + envelope token | Meet rule + envelope-scoped token (presented Step set); re-presentation is `core`'s (RFC-0002 §7) | **DN-54**; RFC-0008 §6/§8/§11; RFC-0002 §7 |
 
-### Ratified decisions (DN-45 … DN-54)
+### DN-45 … DN-54 implementation mapping
 
-| Note | Decision | Resolves |
+| Note | Decision | Embodied in | Validated by |
+|---|---|---|---|
+| DN-45 | Iteration 7 = `policy` layer only; blueprint §8.7/§8.8 numbering superseded by DN-35/DN-40's re-order; blueprint text stands until RFC-0020 | C0 (scope); C1–C4 | `policy` layer complete; `executor`/`audit` untouched |
+| DN-46 | `classify` consumes `schema.Action` + a referenced-Fact set; the `schema` edge is exercised | C1 (`classify.py`) | `test_policy_classify.py`; exercised-edge conformance test |
+| DN-47 | Internal canonical risk-property vocabulary in `classify.py`; the `systemmodel`/State-Domain edge stays latent | C1 (`RISK_PROPERTIES`) | `test_policy_classify.py`; latent-edge conformance test |
+| DN-48 | Token carries an opaque in-memory machine-state snapshot reference; the State-Domain diff is runtime-owned | C3 (`tokens.py`) | `test_policy_tokens.py`; P8/P9 boundary tests |
+| DN-49 | `mint` requires an explicit decision input; no input or rejection mints nothing (P5); override only for Blocked (P10) | C3 (`mint`) | `test_policy_tokens.py`; P5/P10 tests |
+| DN-50 | P13/I-13 satisfied as in-memory issuance records now; the durable Audit write is `audit`'s DoD | C3 (`TokenRecord`) | `test_policy_tokens.py`; P13/I-13 tests |
+| DN-51 | Default-deny policy-loading mechanism now; the shipped contents are RFC-0020's | C2 (`load`, `gates.py`) | `test_policy_gates.py`; `test_policy_evaluation.py` |
+| DN-52 | Standing approvals: representation + evaluation mechanism now; no shipped defaults | C2 (`StandingApproval`) | `test_policy_evaluation.py`; P11 boundary tests |
+| DN-53 | Elevation risk-property → at least Consequential; token records bounds; mechanism is `executor`'s | C1/C3 (`classify`, `Token`) | `test_policy_classify.py`; `test_policy_invariants.py` elevation tests |
+| DN-54 | Plan envelope: meet rule + envelope-scoped token now; re-presentation is `core`'s | C1/C3 (`classify_plan`, `meet`, `mint`) | `test_policy_classify.py`; `test_policy_tokens.py`; `test_policy_invariants.py` meet tests |
+
+### Module ownership map
+
+| Type / value | Module | Owning RFC |
 |---|---|---|
-| DN-45 | Iteration 7 = `policy` layer only; blueprint §8.7/§8.8 numbering superseded by DN-35/DN-40's re-order; blueprint text stands until RFC-0020 | §10 Q1 |
-| DN-46 | `classify` consumes `schema.Action` + a referenced-Fact set; the `schema` edge is exercised | §10 Q2 |
-| DN-47 | Internal canonical risk-property vocabulary in `classify.py`; the `systemmodel`/State-Domain edge stays latent | §10 Q3 |
-| DN-48 | Token carries an opaque in-memory machine-state snapshot reference; the State-Domain diff is runtime-owned | §10 Q4 |
-| DN-49 | `mint` requires an explicit decision input; no input or rejection mints nothing (P5); override only for Blocked (P10) | §10 Q5 |
-| DN-50 | P13/I-13 satisfied as in-memory issuance records now; the durable Audit write is `audit`'s DoD | §10 Q6 |
-| DN-51 | Default-deny policy-loading mechanism now; the shipped contents are RFC-0020's | §10 Q7 |
-| DN-52 | Standing approvals: representation + evaluation mechanism now; no shipped defaults | §10 Q8 |
-| DN-53 | Elevation risk-property → at least Consequential; token records bounds; mechanism is `executor`'s | §10 Q9 |
-| DN-54 | Plan envelope: meet rule + envelope-scoped token now; re-presentation is `core`'s | §10 Q10 |
+| `RiskClass`, `Gate` | `policy/classify.py` | RFC-0008 §6 |
+| `RISK_PROPERTIES`, `Classification`, `PlanClassification` | `policy/classify.py` | RFC-0008 §6; DN-47/DN-54 |
+| `classify`, `classify_plan`, `meet` | `policy/classify.py` | RFC-0008 §6/§8/§11; RFC-0002 invariant 7; DN-54 |
+| `CLASS_GATES`, `ALLOWLISTED_READ_ONLY_GATE`, `gate_for` | `policy/gates.py` | RFC-0008 §6; DN-51 |
+| `Policy`, `PolicyDecision`, `StandingApproval`, `ElevationBound` | `policy/policy.py` | RFC-0008 §7/§8; DN-51/DN-52/DN-53 |
+| `allowlisted`, `load`, `decide`, `standing_approval_applies`, `elevation_bound_for`, `retry_ceiling` | `policy/policy.py` | RFC-0008 §7/§8/§13; RFC-0001 §8.2/§8.3 |
+| `Decision`, `RecordKind`, `InvalidationReason`, `TokenStatus` | `policy/tokens.py` | RFC-0008 §8/§13; DN-49 |
+| `Token`, `TokenRecord`, `MintOutcome` | `policy/tokens.py` | RFC-0008 §8/§9/§13; DN-48/DN-50/DN-54 |
+| `EXPIRY_WINDOWS`, `expiry_for` | `policy/tokens.py` | RFC-0008 §8; DN-51 |
+| `mint`, `consume`, `invalidate`, `validate`, `revalidate` | `policy/tokens.py` | RFC-0008 §8/§9/§10/§13 P5–P10, P13, P14 |
 
-### Implementation scope
+Each type is defined in exactly one module; no type is re-defined or shared
+across modules (RFC-0004 §3 one-owner rule; design review §4).
 
-- **C1** `feat(policy): deterministic risk classification (RFC-0008 §6; RFC-0002 invariant 7; P2, P3, P4)` — `classify.py` (DN-46, DN-47, DN-53, DN-54).
-- **C2** `feat(policy): gate table and default-deny policy loading (RFC-0008 §7; RFC-0001 §8.2; P3)` — `gates.py` + `policy.py` (DN-51, DN-52).
-- **C3** `feat(policy): Approval Token mint/validate (RFC-0008 §8, §10; RFC-0002 invariant 11; P5–P10, P13, P14)` — `tokens.py` (DN-48, DN-49, DN-50, DN-54).
-- **C4** `test(policy): Layer-3 conformance and P-invariant suite` — conformance + invariants (incl. the SC9 structured-inputs-only boundary test).
-- **C5** `docs: record Iteration 7 completion and policy conformance` — closeout.
+### Public surface map
 
-Deferred (recorded, not dropped): the RFC-0002 §6.2 consultation edges and plan
-re-presentation (`core`); independent executor token enforcement and the
-elevation mechanism (`executor`); the durable Audit write and the
-allowlist/standing-approval/expiry/absolute-block contents (RFC-0020); the
-RFC-0021 State-Domain diff (runtime); the SC10 elevation boundary (`executor`,
-DN-43).
+| Module | Public surface (`__all__`) |
+|---|---|
+| `policy/classify.py` | `Classification`, `Gate`, `PlanClassification`, `RISK_PROPERTIES`, `RiskClass`, `classify`, `classify_plan`, `meet` |
+| `policy/gates.py` | `ALLOWLISTED_READ_ONLY_GATE`, `CLASS_GATES`, `gate_for` |
+| `policy/policy.py` | `ElevationBound`, `Policy`, `PolicyDecision`, `StandingApproval`, `allowlisted`, `decide`, `elevation_bound_for`, `load`, `retry_ceiling`, `standing_approval_applies` |
+| `policy/tokens.py` | `Decision`, `EXPIRY_WINDOWS`, `InvalidationReason`, `MintOutcome`, `RecordKind`, `Token`, `TokenRecord`, `TokenStatus`, `consume`, `expiry_for`, `invalidate`, `mint`, `revalidate`, `validate` |
 
-### Readiness for C1
+The facade (`policy/__init__.py`) re-exports nothing and leaks no internal
+placeholder (design review §6). The trust class and the Fact types are carried
+as *values* from `schema` (Q2-in-Iteration-7 precedent), never re-declared
+(design review §4).
 
-**Ready.** The design review is ratified (Q1–Q10 → DN-45…DN-54), the suite
-remains green (1333 tests), and C1 (`classify.py`) is unblocked: `schema.Action`
-exists (Iteration 1), the four `policy` modules are scaffolded (Iteration 0),
-and the `policy → {schema, trust, factlayer}` edges are declared in
-`tests/test_dependency_rules.py` (Iteration 0). C1 begins the implementation of
-the deterministic risk classifier per design review §12/§14 and DN-46/DN-47/
-DN-53/DN-54.
+### Layer-3 conformance summary
+
+Verified by `tests/test_policy_conformance.py` (mirrors
+`test_trust_conformance.py` and `test_secrets_conformance.py`):
+
+- **Imports.** Only stdlib + `policy` itself + the blueprint §4.1 set
+  `{schema, trust, factlayer}`; the declared `policy → trust` and
+  `policy → factlayer` edges stay **latent** — no module consumes them (DN-47);
+  the `policy → schema` edge is **activated** by `classify.py` (DN-46).
+- **No forbidden imports.** No higher-layer or authority-bearing package
+  (collectors, factlayer, trust, verification, runtime/core, providers,
+  executor, secrets, audit, context, skills, systemmodel, cli); no I/O-,
+  concurrency-, clock-, or persistence-capable stdlib (no `os`, `pathlib`,
+  `json`, `sqlite3`, `threading`, `asyncio`, `socket`, …).
+- **No dependency-edge violations.** `test_dependency_rules.py` green;
+  declared and observed import graphs acyclic (`policy → schema` → stdlib).
+- **No forbidden runtime logic.** No top-level control flow; module-level code
+  builds only constant data (the `RISK_PROPERTIES` vocabulary, the `CLASS_GATES`
+  table, the `EXPIRY_WINDOWS` map, all `MappingProxyType`/`frozenset` literals);
+  no I/O, clocks, randomness, persistence, or execution calls anywhere
+  (RFC-0008 §2: pure, deterministic policy evaluation).
+- **Frozen + slots.** Every public dataclass (`Classification`,
+  `PlanClassification`, `Policy`, `PolicyDecision`, `StandingApproval`,
+  `ElevationBound`, `Token`, `TokenRecord`, `MintOutcome`) is frozen and
+  slot-based (DN-34 precedent).
+- **No ownership overlap / no placeholder leaks.** `__all__` equals the
+  ownership map per module; names unique across modules; no underscore-prefixed
+  name exported; the facade re-exports nothing.
+- **Package tree unchanged.** `policy/{__init__,classify,gates,tokens,policy}.py`
+  matches blueprint §2 exactly (`test_packages.py`); `schema` never imports
+  `policy`.
+- **SC9 boundary (carried from DN-43).** `classify` accepts only a structured
+  `schema.Action`; raw text and secret-shaped strings are refused at the
+  boundary and never smuggled through the pipeline.
+
+### P-invariant coverage table
+
+Verified by `tests/test_policy_invariants.py` against the RFC-0008 §13
+P1–P14 oracle (design review §8). P1, P11, P12, the durable half of P13, and
+the §6.2 edges are held by layer-boundary tests now; their enforcement points
+are `executor`/`audit`/`core` (DN-45/DN-50/DN-53/DN-54):
+
+| Invariant | What is verified |
+|---|---|
+| P1 | The gate is the only path to mutation (boundary): no execution surface exists on the token; `mint` never decides whether to approve; enforcement is `executor`'s (recorded, not dropped) |
+| P2 / I-7 | Deterministic classification, never the self-report: identical Actions and Facts classify identically; the proposer's words and confidence are ignored; the same input always yields the same class |
+| P3 | Default deny and fail closed: unknown/ambiguous/unclassifiable inputs are BLOCKED and disclosed; an empty policy allowlists nothing; `gate_for`/`load` fail closed on malformed rules; a standing approval never covers a Blocked Action |
+| P4 | The gate is carried, never re-derived: the gate is a frozen field of the classification; the decision gate never depends on the description |
+| P5 | Approval is explicit; nothing on silence: an absent decision mints nothing and consumes nothing; a rejection mints nothing; no timeout yields a "yes" |
+| P6 | Scoped to what was shown: a substituted Action is a fresh approval; a plan deviation voids the envelope; anything the token does not name is not approved |
+| P7 | Single-use, never reused: one Action consumes its token; replaying a consumed token is refused; a consumed or expired token is dead |
+| P8 | Bound to action/time/state, invalidated by any boundary: each of the six `InvalidationReason`s leaves the token unusable; an invalidated token is never resurrected; expiry is deterministic per class and dead-not-renewable |
+| P9 | Re-validated at the boundary: a stale/changed Fact, a changed State Domain, a substituted Action, a session restart, or any uncertainty refuses the spend |
+| P10 | Blocked only by explicit, audited override: no approve path for a Blocked Action; an override requires its own decision and reason; the override is recorded with its reason; no override for a non-blocked Action |
+| P11 | Standing approvals scoped/bounded/expiring (boundary): `standing_approval_applies` refuses out-of-scope/above-ceiling/expired covers; execution is `executor/core`'s (recorded, not dropped) |
+| P12 | Elevation explicit and scoped (boundary): an elevated Action is at least Consequential; the token records its elevation bounds; mechanism/revocation is `executor.elevation`'s (recorded, not dropped) |
+| P13 / I-13 | Recorded before it is spent: no token is spendable without a prior record; the record precedes the spend; every mint kind (issuance/auto-permit/override/rejection) is recorded; the durable Audit write is `audit`'s (recorded, not dropped) |
+| P14 | Reload and state-change re-validate: a policy reload and a state change invalidate outstanding tokens and refuse revalidation |
+| I-11 | The token is scoped, consumable, invalidated: bound to action/time/state/session; auto-permission is not reusability |
+
+Cross-layer invariants additionally enforced: the meet rule (a plan's class is
+the meet of its steps; a destructive step blocks the plan; an empty or
+unclassifiable plan fails closed); the elevation rule; full-pipeline
+determinism (50 repeated classify→decide→mint runs are byte-identical);
+explicit-time `validate`/`revalidate`; every record is immutable with no hidden
+state; no token exists without an explicit decision; and the SC9
+structured-inputs-only boundary.
+
+### Dependency and ownership verification
+
+- `tests/test_dependency_rules.py` green: `policy` imports only within
+  `ALLOWED["policy"] = {"schema", "trust", "factlayer"}` + stdlib + itself; no
+  forbidden edge; graphs acyclic (`policy → schema` → stdlib).
+- `tests/test_packages.py` green: tree matches blueprint §2 exactly.
+- One owner per name: the classification vocabulary (§6), the gate table (§6),
+  the policy/evaluation records (§7/§8), and the token/record machinery
+  (§8/§9/§13) are each defined in exactly one module; the `schema` types are
+  consumed as values, never re-declared.
+- **No authority.** `policy` holds no RFC-0004 §7 authority cell; it computes
+  classes, gates, decisions, and token lifecycles deterministically and
+  *delegates* the state-changing enforcement, elevation, and audit halves to
+  their owning components (design review §1).
+- **P1/P11/P12/durable-P13 boundary satisfaction (DN-45/DN-50).** The
+  package's own surface is pure (no execution, no I/O, no persistence) and
+  records the deferred obligations against `executor`/`audit`/`core` below.
+
+### Remaining deferred items
+
+Recorded only; nothing is invented. Each belongs to a later iteration:
+
+| Deferred item | Owning future iteration / RFC |
+|---|---|
+| Independent executor token enforcement (the gate is the only path to mutation, P1) | RFC-0008 §13 `executor` (Iteration 8); RFC-0004 A2/A9 |
+| Standing-approval execution: pre-minting per Action at its boundary (P11) | RFC-0008 §8 `executor`/`core`; RFC-0001 §8.3 |
+| Elevation mechanism and revocation; the SC10 elevation boundary | RFC-0008 §8 `executor.elevation` (Iteration 8); RFC-0001 §8.6; DN-53/DN-43 |
+| The durable Audit write of the issuance/override/auto-permit/rejection records (P13) | RFC-0008 §13 `audit` (Iteration 8); RFC-0002 I-13; DN-50 |
+| The RFC-0002 §6.2 consultation edges and plan re-presentation | RFC-0002 §6.2/§7 `core`; RFC-0004 §4.7 |
+| The shipped policy contents: allowlist, standing approvals, expiry windows, absolute-block rules | RFC-0020 (RFC-0008 §16; DN-51) |
+| The RFC-0021 State-Domain vocabulary and its diff as the State-Domain change signal | RFC-0021 (Draft), `systemmodel`/runtime (DN-47/DN-48) |
+| RFC-0008 Draft rework risk (and its deferred parts in RFC-0002/0004/0007) | RFC acceptance / amendment (blueprint §9 #2) |
+
+### Completion verdict
+
+- Iteration 7 implementation is **complete**.
+- **Layer-3 Definition of Done is satisfied** (blueprint §8.7 re-ordered by
+  DN-35/DN-40; design review §14 C4): P2–P10, P13, and P14 (with P1, P11, P12,
+  and the durable half of P13 held at the layer boundary and recorded against
+  their owners) each have a test; every layer-enforceable P1–P14 and I-11 has a
+  test.
+- **C0–C5 are complete.** The `policy` layer is complete per the blueprint and
+  the design review.
+- Full suite: 1722 tests pass; ruff, format, build, and pre-commit are clean.
+
+### Readiness for Iteration 8
+
+Iteration 8 is the **`executor` + `audit`** layer (RFC-0004 §4.8–§4.10;
+RFC-0013; blueprint §8.8, re-ordered by DN-45/DN-40 to follow `policy`). It
+owns the recorded enforcement halves of this iteration: independent token
+enforcement (P1), the elevation mechanism (P12/DN-53), and the durable Audit
+write (P13/DN-50). Iteration 8 begins with its own design review and
+ratification before implementation.
 
 ---
 

@@ -584,6 +584,17 @@ and the SC9/SC10 boundaries recorded by DN-43) are named against
 `executor`/`audit`/`core` rather than dropped. **Ratified: Q1–Q10 are recorded
 as DN-45…DN-54; the layer is READY for C1.**
 
+**Post-implementation status (Iteration 7 closeout):** Q1–Q10 were ratified and
+recorded as DN-45…DN-54 before C0, and the layer has now been **fully
+implemented and validated** — C0–C5 complete (§12/§14 mapping; `policy` shipped
+on `iteration/7-policy`), the `policy` layer is complete per blueprint §8.7
+(re-ordered by DN-35/DN-40), the suite is green (1722 tests), and the next
+iteration is the `executor` + `audit` layer (RFC-0004 §4.8–§4.10; RFC-0013),
+shifted to follow `policy` by DN-45, which owns the recorded enforcement halves
+(P1 independent enforcement, P12 elevation, the durable P13 Audit write). The
+deferred P1/P11/P12/durable-P13 cross-component enforcement is recorded against
+`executor`/`audit`/`core` per DN-45/DN-50/DN-53.
+
 ---
 
 ## Consistency review against the Blueprint and governing RFCs
