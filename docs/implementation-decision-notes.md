@@ -4,20 +4,22 @@
 > **Read this first:** These notes record implementation decisions ratified
 > during Iteration 1 (the `schema` package), Iteration 2 (the `systemmodel`
 > layer), Iteration 3 (the `factlayer` + `collectors` pipeline), Iteration 4
-> (the `verification` layer), and Iteration 5 (the `trust` layer). They define
-> no new architecture, modify no RFC, and change no ownership (blueprint §10;
-> RFC-0004 §3). They fix the *reading* of ambiguities reported by the iteration
-> design reviews (`docs/iteration-1-design-review.md`,
+> (the `verification` layer), Iteration 5 (the `trust` layer), and Iteration 6
+> (the `secrets` layer). They define no new architecture, modify no RFC, and
+> change no ownership (blueprint §10; RFC-0004 §3). They fix the *reading* of
+> ambiguities reported by the iteration design reviews
+> (`docs/iteration-1-design-review.md`,
 > `docs/iteration-2-design-review.md` §16, `docs/iteration-3-design-review.md`
 > §11, `docs/iteration-4-design-review.md` §8,
-> `docs/iteration-5-design-review.md` §5) so that a reported ambiguity
+> `docs/iteration-5-design-review.md` §5,
+> `docs/iteration-6-design-review.md` §5) so that a reported ambiguity
 > cannot reappear in a later iteration. Each note names the ambiguity it
 > resolves, its RFC grounding, and the commit that embodies it. Amending a note
 > here amends no RFC; it is a re-ratified implementation record, subject to the
 > same review that ratified it. Iteration 1 notes are DN-1…DN-6; Iteration 2
 > notes are DN-7…DN-12; Iteration 3 notes are DN-13…DN-24; Iteration 4 notes are
-> DN-25…DN-34; Iteration 5 notes are DN-35…DN-39 (see the iteration sections
-> below).
+> DN-25…DN-34; Iteration 5 notes are DN-35…DN-39; Iteration 6 notes are
+> DN-40…DN-44 (see the iteration sections below).
 
 ---
 
@@ -1021,3 +1023,168 @@ tests), the Layer-1 conformance and invariant suites (`test_trust_conformance.py
 `test_trust_invariants.py`) enforce the ratified readings, and the next
 iteration is the `secrets` package (RFC-0009) that DN-35 postponed. No new
 decision note is required for this closeout.
+
+---
+
+# Iteration 6 decision notes (Secrets layer)
+
+The notes below record the Iteration 6 ratification (Operator, 2026-08-06) of
+the five questions posed by `docs/iteration-6-design-review.md` §5 (Q1–Q5).
+They fix the reading of the reported ambiguities so that a reported ambiguity
+cannot reappear in a later iteration, and they **unblock Iteration 6
+implementation** (design review §6–§10 readiness). All five questions are
+recorded as decision notes DN-40…DN-44: each fixes an iteration-scope reading
+that the frozen corpus leaves open (the corpus supplies the grounding, never
+the iteration boundary itself). No question requires an RFC amendment, a
+`schema`/`systemmodel`/`trust`/`factlayer`/`verification`/`policy` change, a
+new module, or a new dependency edge. The notes define no new architecture,
+modify no RFC, and change no ownership the corpus did not already assign
+(blueprint §10).
+
+## DN-40 — Iteration 6 scope is the `secrets` layer; the blueprint §8.6/§8.7 numbering is superseded by DN-35
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 6 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §5 Q1 |
+| Grounding | DN-35 (secrets postponed to the iteration after `trust`); blueprint §8.6 (`secrets`), §8.7 (`policy`, original numbering); RFC-0000 §4 (RFC-0009 entry: core scope Required, telemetry deferred to post-MVP), §7 (writing order); RFC-0009 roadmap note; consistency report Iteration 5 §Readiness for Iteration 6 |
+| Embodied in | Iteration 6 implementation plan (docs-ratification commit C0) |
+
+**Decision.** Iteration 6 executes as the **Secrets Layer (`secrets` only)**
+(RFC-0009; blueprint §8.6, re-ordered by DN-35 to follow `trust`). The blueprint
+§8.6/§8.7 numbering is **superseded by DN-35's re-order**: `secrets` is Iteration
+6, `policy` (blueprint §8.7) shifts to the following iteration, and `secrets`
+still precedes `context` (RFC-0012, Iteration 8 per the closeout's label). The
+blueprint text itself is **left unchanged** — the re-numbering is recorded here
+and in the consistency report as a reported tension, and the blueprint stands
+until RFC-0020 (the authoritative build order) lands. No RFC is modified.
+
+**Effect.** Iteration 6's Definition of Done and commit plan contain `secrets`
+work only (classifier, redactor, Secure Store abstraction; SC2–SC5
+layer-boundary tests, SC14, SC15). The blueprint §8.7 `policy` DoD (I-7, I-11,
+P8–P13) is not part of Iteration 6 and is renumbered to the following iteration.
+This note executes DN-35's promise and mirrors DN-13/DN-35's scope-fixing
+pattern.
+
+## DN-41 — The Secure Store abstraction now; the OS secret store mechanics are RFC-0020's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 6 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §5 Q2 |
+| Grounding | RFC-0009 §9 (persistence philosophy: a value is never durable anywhere but the Secure Store), §30 OQ1 (which OS store / how its interface is presented — RFC-0020); RFC-0001 §8.7 (OS secret store); blueprint §6.2 (`secrets` = "Secure Store adapter interface (mechanics per RFC-0020)"); DN-1 (in-memory types only), DN-19 (in-memory current set), DN-34 (in-memory evidence record) |
+| Embodied in | Iteration 6 implementation plan, Commit C3 |
+
+**Decision.** `secrets/store.py` implements the Secure Store **abstraction /
+interface contract** — `provision`, `consume`-at-named-boundary (purpose-scoped,
+SC6/SC7), `invalidate`, `destroy` (SC12), the owner/custody split (SC8), and the
+exposure = compromise invalidation (SC15) — over **in-memory, metadata-only
+records** (DN-19/DN-34 precedent). In this iteration a secret value exists only
+at the `consume` boundary and is destroyed when the call completes (SC12); the
+abstraction never holds a value durably, never re-displays one, and records
+metadata only (RFC-0009 §15). The real OS-secret-store mechanics — which store,
+its interface, encryption, key management — are **RFC-0020's** (RFC-0009 §30
+OQ1) and are not built here. Nothing durable is written.
+
+**Effect.** C3 builds the contract, not a real store; tests assert the
+metadata-only, value-at-boundary-only behavior; no persistence beyond in-memory
+metadata (SC11 honored by never retaining without consent). Mirrors DN-19/DN-34.
+
+## DN-42 — The redaction framework now; the exact catalogue remains RFC-0020/RFC-0012's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 6 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §5 Q3 |
+| Grounding | RFC-0009 §11 (layered redaction), §13 (SC13 deterministic/testable, SC14 fails closed), §30 OQ2 (exact deterministic rule catalogue — RFC-0020 and RFC-0012); RFC-0007 S5 (redaction is a sanitization), S8 (containment/bounding), §16 OQ3 (redaction mechanics delegated to RFC-0009); DN-38 precedent (Iteration 5 built the S3 primitives now; exact mechanics deferred) |
+| Embodied in | Iteration 6 implementation plan, Commit C2 |
+
+**Decision.** `secrets/redact.py` implements the deterministic redaction
+**framework now** (RFC-0009 §11): a secret-classifier-gated transformation that
+replaces secret-shaped spans at the boundary and fails closed to **WITHHELD**
+when the no-secret property cannot be established (SC14), with a minimal,
+explicitly **non-exhaustive** mechanical catalogue covering the §1
+secret-shaped classes (bearer tokens, API keys, private-key blocks,
+secret-shaped configuration). It consumes `trust.sanitize` for the containment
+layer (bound/quote, RFC-0007 S8/S4) and `TrustClass` for the never-upgrade
+guarantee (RFC-0007 S1, T9) — redaction is not trust, and it never upgrades.
+It implements no summarization algorithms and no exhaustive pattern catalogue:
+those remain RFC-0012's and RFC-0020's (RFC-0009 §30 OQ2). Redaction transforms
+derived artifacts, never the machine's source files (RFC-0009 §11.5).
+
+**Effect.** C2 is the invariant-bearing redactor satisfying SC13/SC14 now
+(blueprint §8.6 DoD); the exact per-pattern catalogue is RFC-0020's/RFC-0012's
+enforcement point. Mirrors DN-38.
+
+## DN-43 — SC2–SC5 are satisfied as layer-boundary tests now; cross-component enforcement is the owning packages' DoD
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 6 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §5 Q4 |
+| Grounding | blueprint §8.6 DoD (SC2–SC5, SC14, SC15 tests pass); RFC-0009 §19–§22 (interactions), §28 (SC2–SC5); RFC-0004 §4.11 (the Context Manager is the enforcement point and may never decide to include a secret); RFC-0012 §32 (context interaction with secrets); RFC-0013 §31 (audit interaction); RFC-0010 §11 (no secret enters a Provider View); RFC-0011 §15 (no secrets to Skills); RFC-0002 invariant 4; Iteration 5 precedent (RFC-0002 invariants 4/5 made testable at the sanitize/containment layer; runtime enforcement is `core`'s) |
+| Embodied in | Iteration 6 implementation plan, Commit C4 |
+
+**Decision.** The blueprint §8.6 DoD's **SC2–SC5 half is satisfied at the
+secrets layer as layer-boundary tests**: property tests proving the package's
+own public surface never exports a value, never offers a path from a public
+function to a value-bearing artifact outside `store.consume`, never constructs
+Context/Provider/Audit/Skill material, and that SC2–SC5 hold "by construction"
+of the surface — the facade re-exports only owned, value-free vocabulary, and
+the surface honors blueprint §4.2's "`context` may import `secrets` classifier
+types only". The **cross-component enforcement** of SC2 (Context), SC3
+(Provider View), SC4 (Audit), and SC5 (extensions) is the Definition of Done of
+`context` (Iteration 8), `audit` (Iteration 7), and `providers`/`skills`
+(Iteration 9) respectively, and is **recorded, not dropped**, in the
+consistency-report deferred-items table. End-to-end SC2–SC5 conformance
+completes at those iterations.
+
+**Effect.** C4's SC2–SC5 tests are boundary tests on this package; the deferred
+cross-component conformance is named against its owning package. Mirrors the
+Iteration 5 pattern for RFC-0002 invariants 4/5.
+
+## DN-44 — `classify.py` operates on an internal abstract input; the `schema` edge stays latent
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 6 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §5 Q5 |
+| Grounding | RFC-0009 §1 (value/metadata split), §3 (six classification rules — value-shaped), §21 (a secret value is never a Fact); blueprint §4.1 (`secrets → schema` edge allowed, not required); DN-1 (in-memory types); DN-37 precedent (`trust → schema` edge latent), DN-28 precedent (`verification → systemmodel` edge latent) |
+| Embodied in | Iteration 6 implementation plan, Commit C1 |
+
+**Decision.** The secrecy classifier entry in `secrets/classify.py` operates on
+an **internal abstract input record** (content + provenance/origin context), not
+on a `schema` canonical type and not on a bare string. The declared
+`secrets → schema` import edge is left **latent** this iteration (DN-37
+precedent). The classifier carries the §1 **value/metadata distinction as
+separate result kinds**: a `SecretMetadata` record (existence, provider, dates)
+and a value-bearing classification that is never re-displayed or exported
+beyond its boundary. A `schema`-bound adapter, if ever needed, is RFC-0020's
+(DN-1). A `schema.Fact` is never the classifier's input — Facts are secret-free
+by construction (RFC-0009 §21).
+
+**Effect.** `classify` is type-free over the canonical `schema` vocabulary; the
+declared edge is authorized but unused; no new dependency is introduced. Mirrors
+DN-37/DN-28.
+
+### Q1–Q5 question status
+
+| §5 Q | Subject | Status | Where resolved |
+|---|---|---|---|
+| Q1 | Iteration scope / renumbering vs blueprint §8.7 | **Ratified** | DN-40 (this file) |
+| Q2 | Secure Store abstraction vs real store | **Ratified** | DN-41 (this file) |
+| Q3 | Redaction framework scope vs RFC-0020 catalogue | **Ratified** | DN-42 (this file) |
+| Q4 | SC2–SC5 DoD without their enforcement points | **Ratified** | DN-43 (this file) |
+| Q5 | Classifier input / `schema` edge | **Ratified** | DN-44 (this file) |
+
+All five §5 questions are resolved as decision notes; none requires an RFC
+amendment, a `schema`/`systemmodel`/`trust`/`factlayer`/`verification`/`policy`
+change, a new module, or a new dependency edge. **Iteration 6 implementation is
+unblocked** (design review §10 readiness). Commit C0 (this commit) is the
+docs-ratification commit; C1–C5 implement and validate the layer per the design
+review §6/§7 plan.

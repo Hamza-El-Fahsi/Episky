@@ -7,7 +7,9 @@ implemented the `schema` package; Iteration 2 implemented the `systemmodel`
 layer plus the ratified `schema` change (DN-9); Iteration 3 implemented the
 `factlayer` + `collectors` pipeline (blueprint §8.4); Iteration 4 implemented
 the `verification` layer (blueprint §8.5, DN-25…DN-34); Iteration 5 implemented
-the `trust` layer (blueprint §8.3 trust half, RFC-0007, DN-35…DN-39). This
+the `trust` layer (blueprint §8.3 trust half, RFC-0007, DN-35…DN-39); Iteration
+6 ratifies the `secrets` layer (RFC-0009; blueprint §8.6 re-ordered by DN-35;
+DN-40…DN-44). This
 report is updated at the end of each iteration and verified against
 `docs/architecture-implementation-blueprint.md`, the design reviews, and the
 decision notes.
@@ -987,6 +989,43 @@ by DN-35 so it follows `trust` and still precedes `context`, Iteration 8). It is
 its dependency on `trust` is preserved (blueprint §4.1: `secrets → {schema,
 trust}`). Iteration 6 begins with its own design review and ratification before
 implementing the `secrets` package.
+
+---
+
+## Iteration 6 — the `secrets` layer (ratification, Commit C0)
+
+Iteration 6 implements the **Secrets Layer** (`secrets`, RFC-0009; blueprint
+§8.6, re-ordered by DN-35 so it follows `trust` and still precedes `context`,
+Iteration 8). The full design review is `docs/iteration-6-design-review.md`;
+the ratified decisions are DN-40…DN-44 in
+`docs/implementation-decision-notes.md`. Commit C0 is the **docs-ratification
+commit**: it answers all five design-review questions (Q1–Q5) as decision notes
+and **unblocks Iteration 6 implementation** (design review §10). No RFC is
+modified and no source code, test, or scaffold change is introduced here.
+
+### Q1–Q5 resolution summary
+
+| §5 Q | Subject | Resolution | Governing RFC / note |
+|---|---|---|---|
+| Q1 | Iteration scope / renumbering vs blueprint §8.7 | `secrets` is Iteration 6 (DN-35 executes); `policy` shifts to the following iteration; blueprint §8.6/§8.7 numbering superseded, blueprint text stands until RFC-0020 | **DN-40**; blueprint §8.6/§8.7; DN-35; RFC-0000 §4/§7 |
+| Q2 | Secure Store abstraction vs real store | Abstraction/interface contract over in-memory, metadata-only records; a value exists only at the consume boundary; OS-secret-store mechanics RFC-0020's (RFC-0009 §30 OQ1) | **DN-41**; RFC-0009 §9/§30 OQ1; DN-1/DN-19/DN-34 |
+| Q3 | Redaction framework vs RFC-0020 catalogue | Deterministic redaction framework + minimal non-exhaustive catalogue now, consuming `trust.sanitize` (S8/S4) and `TrustClass` (S1, T9); exact catalogue RFC-0020/RFC-0012's | **DN-42**; RFC-0009 §11/§13/§30 OQ2; RFC-0007 S5/S8; DN-38 |
+| Q4 | SC2–SC5 DoD without their enforcement points | Layer-boundary tests now (value-free surface, no path outside `store.consume`); cross-component enforcement is `context`/`audit`/`providers`/`skills` DoD, recorded not dropped | **DN-43**; blueprint §8.6; RFC-0009 §28; RFC-0004 §4.11; RFC-0012 §32 |
+| Q5 | Classifier input / `schema` edge | Internal abstract input record (content + provenance/origin); value/metadata split; `schema` edge latent (DN-37 precedent) | **DN-44**; RFC-0009 §1/§3/§21; blueprint §4.1; DN-37 |
+
+### Ratified decisions (DN-40 … DN-44)
+
+| Note | Decision | Resolves |
+|---|---|---|
+| DN-40 | Iteration 6 = `secrets` layer only; blueprint §8.6/§8.7 numbering superseded by DN-35's re-order; `policy` shifts; blueprint text stands until RFC-0020 | §5 Q1 |
+| DN-41 | Secure Store abstraction over in-memory metadata-only records; a value exists only at the consume boundary; OS-store mechanics RFC-0020's | §5 Q2 |
+| DN-42 | Redaction framework + minimal non-exhaustive catalogue now, consuming `trust.sanitize`; exact catalogue RFC-0020/RFC-0012's | §5 Q3 |
+| DN-43 | SC2–SC5 satisfied as layer-boundary tests now; cross-component enforcement is the owning packages' DoD | §5 Q4 |
+| DN-44 | Classifier on an internal abstract input; value/metadata split; `schema` edge latent | §5 Q5 |
+
+**No source code is written in Commit C0.** Iteration 6 implementation begins at
+Commit C1 (`classify.py`) per the design review §6 plan, each commit satisfying
+its §7 DoD before the next begins.
 
 ---
 
