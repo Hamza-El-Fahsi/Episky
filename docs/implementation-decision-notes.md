@@ -998,5 +998,26 @@ itself is RFC-0012's.
 All eight §5 questions are resolved — five as decision notes, three by the
 frozen corpus; none requires an RFC amendment, a `schema`/`systemmodel`/
 `factlayer`/`verification`/`secrets` change, a new module, or a new dependency
-edge. **Iteration 5 implementation is unblocked** (design review §10 readiness),
-pending only the implementation commits that follow.
+edge. **Iteration 5 implementation is unblocked** (design review §10 readiness)
+and is now **complete**: the planned commits shipped as `70ff815` (C1, trust
+classes), `7864f65` (C2, sanitization), `fb5bcb9` (C3, hostile quarantine),
+`2cf85d8` (C4, Layer-1 conformance and invariant tests), with this closeout
+commit (C5) recorded in `docs/implementation-consistency-report.md` (Iteration
+5 section).
+
+### DN-35 … DN-39 completion status
+
+| Note | Decision | Status | Embodied in | Validated by |
+|---|---|---|---|---|
+| DN-35 | Iteration 5 = `trust` layer only; `secrets` postponed | **Implemented** | C0 (scope); C1–C4 | `trust` layer complete; `secrets` untouched |
+| DN-36 | Category/domain vocabulary: enumerate RFC-0007-owned (§6.1–§6.9); defer owned-elsewhere | **Implemented** | C1 (`classes.py` vocabulary) | `test_trust_classes.py`; S5 boundary test |
+| DN-37 | Classification over an internal abstract datum; origin required; `schema` edge latent | **Implemented** | C1 (`Datum`, `classify`) | `test_trust_conformance.py` (latent edge) |
+| DN-38 | S3 neutralization primitives + S4/S8 now; exact mechanics remain RFC-0012's | **Implemented** | C2 (`sanitize.py`) | `test_trust_sanitize.py`; S1/S6/S7/S8 tests |
+| DN-39 | Hostile produced only by the fail-closed paths; no detection heuristics | **Implemented** | C2/C3 (fail-closed sanitize; quarantine/contagion) | `test_trust_invariants.py` DN-39 enumeration |
+
+**Iteration 5 completion note.** All ratified Trust-layer decisions
+(DN-35…DN-39) are implemented and validated: the full suite is green (1049
+tests), the Layer-1 conformance and invariant suites (`test_trust_conformance.py`,
+`test_trust_invariants.py`) enforce the ratified readings, and the next
+iteration is the `secrets` package (RFC-0009) that DN-35 postponed. No new
+decision note is required for this closeout.

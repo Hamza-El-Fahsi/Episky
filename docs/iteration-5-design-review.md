@@ -410,6 +410,14 @@ and **Q7** (Hostile production paths). Once Q1–Q8 are ratified, the layer is
 **READY** and commits execute in order C0→C5, each satisfying its §7 DoD before
 the next begins.
 
+**Post-implementation status (Iteration 5 closeout):** Q1–Q8 were ratified and
+recorded as DN-35…DN-39 (with the three corpus-resolved questions) before C0,
+and the layer has now been **fully implemented and validated** — C0–C5 complete
+(§6/§7 mapping; `trust` shipped on `iteration/5-trust`), the `trust` layer is
+complete per blueprint §8.3, the suite is green (1049 tests), and the next
+iteration is the `secrets` package (RFC-0009), postponed to follow `trust` by
+DN-35.
+
 ---
 
 ## Consistency review against the Blueprint and governing RFCs

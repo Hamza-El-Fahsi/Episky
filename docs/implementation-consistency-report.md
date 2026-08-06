@@ -6,8 +6,9 @@ deferred. Iteration 0 bootstrapped the repository skeleton; Iteration 1
 implemented the `schema` package; Iteration 2 implemented the `systemmodel`
 layer plus the ratified `schema` change (DN-9); Iteration 3 implemented the
 `factlayer` + `collectors` pipeline (blueprint §8.4); Iteration 4 implemented
-the `verification` layer (blueprint §8.5, DN-25…DN-34). This report is updated
-at the end of each iteration and verified against
+the `verification` layer (blueprint §8.5, DN-25…DN-34); Iteration 5 implemented
+the `trust` layer (blueprint §8.3 trust half, RFC-0007, DN-35…DN-39). This
+report is updated at the end of each iteration and verified against
 `docs/architecture-implementation-blueprint.md`, the design reviews, and the
 decision notes.
 
@@ -831,16 +832,28 @@ blueprint §8.6) is postponed to the next iteration (DN-35).
 
 ---
 
-## Iteration 5 — the `trust` layer (ratification, Commit C0)
+## Iteration 5 — the `trust` layer (complete)
 
 Iteration 5 implements the **Trust Layer** (`trust`, blueprint §8.3 trust half;
 RFC-0007) — the half of the iteration that DN-7 deferred to its own review. The
 full design review is `docs/iteration-5-design-review.md`; the ratified
 decisions are DN-35…DN-39 in `docs/implementation-decision-notes.md`. Commit C0
-is the **docs-ratification commit**: it answers all eight design-review
-questions (Q1–Q8) — five as decision notes, three by the frozen corpus — and
-**unblocks Iteration 5 implementation** (design review §10). No RFC is modified
-and no source code, test, or `schema` change is introduced here.
+was the **docs-ratification commit** (answers all eight design-review questions
+Q1–Q8 — five as decision notes, three by the frozen corpus); C1–C4 implemented
+and tested the layer; C5 (this commit) records its completion. No RFC is
+modified, no new module exists outside the blueprint §2 tree, and no dependency
+edge is added beyond the declared, latent `trust → schema` edge (DN-37).
+
+### Commit mapping (C0–C5)
+
+| Commit | Message | Content |
+|---|---|---|
+| C0 `ffe0d0a` | `docs: ratify Iteration 5 design review decisions` | Design-review ratification: Q1–Q8 resolved, DN-35…DN-39 recorded |
+| C1 `70ff815` | `feat(trust): implement trust classification lattice` | `classes.py`: `TrustClass` (four members, §5 order), `TrustDomain` (twelve, §4), `TrustCategory` (nine, §6), `ProvenanceState` (§9.6), `meet`/`join` (§5.1), `downgrade` (§9), `classify` (DN-37), the vocabulary tables, and the `Datum`/`Classification`/`Demotion` records — 79 tests |
+| C2 `7864f65` | `feat(trust): implement sanitization primitives` | `sanitize.py`: S3 neutralization (control characters, ANSI escapes, Unicode taming), `quote` (S4), `bound` (S8), `sanitize` fail-closed to Hostile (S6, T9, DN-39 path 2), and the `Sanitization`/`SanitizationStatus` result records (Q6) — 92 tests |
+| C3 `fb5bcb9` | `feat(trust): implement hostile quarantine semantics` | `hostile.py`: in-memory `Quarantine` record with fail-closed admission and unconditional exclusion (§15.5, T11, Q8), `DisclosureState` (§15.6–§15.8), `contaminate` (T12, §9.7) — 34 tests |
+| C4 `2cf85d8` | `test(trust): enforce Layer-1 conformance and trust invariants` | `test_trust_conformance.py` (42 tests) + `test_trust_invariants.py` (170 tests): Layer-1 rules, S1–S8, T8–T12, DN-39 enumeration |
+| C5 `(this commit)` | `docs: record Iteration 5 completion and trust conformance` | This closeout |
 
 ### Q1–Q8 resolution summary
 
@@ -855,53 +868,125 @@ and no source code, test, or `schema` change is introduced here.
 | Q7 | Hostile production paths | Hostile only via the fail-closed paths (unclassifiable T11/§15.5; sanitization failure S6/T9; suspicious provenance loss §9.6); no detection heuristics (RFC-0012's stance) | **DN-39**; RFC-0007 §5/§9.6/§15.5–§15.8/§16.6, T11/T12 |
 | Q8 | Quarantine container scope | In-memory quarantine record (datum + reason + withheld/disclosed); durable recording deferred to RFC-0013 (Iteration 7, DN-34 precedent) | Resolved by corpus: RFC-0007 §15.5–§15.8; RFC-0002 invariant 13; RFC-0013; DN-19/DN-34 |
 
-### Ratified decisions (DN-35 … DN-39)
+### Type → owner map
 
-| Note | Decision | Resolves |
+| Type / value | Module | Owning RFC |
 |---|---|---|
-| DN-35 | Iteration 5 = `trust` layer only; `secrets` postponed to next iteration | §5 Q1 |
-| DN-36 | Category/domain vocabulary: enumerate RFC-0007-owned (§6.1–§6.9); defer owned-elsewhere (secrets → RFC-0009, skill → RFC-0011) | §5 Q2 |
-| DN-37 | Classification over an internal abstract datum; origin domain required; `schema` edge latent | §5 Q3 |
-| DN-38 | S3 neutralization primitives + S4/S8 now; exact mechanics remain RFC-0012's | §5 Q5 |
-| DN-39 | Hostile produced only by the fail-closed paths; no detection heuristics | §5 Q7 |
+| `TrustClass`, `TrustDomain`, `TrustCategory`, `ProvenanceState` | `trust/classes.py` | RFC-0007 §5, §4, §6, §9.6 |
+| `Datum`, `Classification`, `Demotion` | `trust/classes.py` | RFC-0007 §4/§5/§6/§9; DN-37; DN-34 |
+| `meet`, `join`, `downgrade`, `classify` | `trust/classes.py` | RFC-0007 §5.1, §9, §6; DN-37 |
+| `CATEGORY_DEFAULTS`, `CATEGORY_ORIGINS`, `PROVENANCE_LOSS_DEMOTION`, `TRUST_DOMAIN_POSTURES` | `trust/classes.py` | RFC-0007 §6, §4, §9.6 (vocabulary data) |
+| `Sanitization`, `SanitizationStatus`, `DEFAULT_LIMIT` | `trust/sanitize.py` | RFC-0007 §11 S1–S8; §16.2 (provisional bound); Q6 |
+| `strip_ansi`, `neutralize_control`, `tame_unicode`, `bound`, `quote`, `sanitize` | `trust/sanitize.py` | RFC-0007 §10, §11; DN-38 |
+| `Quarantine`, `DisclosureState` | `trust/hostile.py` | RFC-0007 §15.5–§15.8; Q8 |
+| `quarantine`, `contaminate` | `trust/hostile.py` | RFC-0007 §15.5, §9.7 (T12); DN-39 |
 
-### Architectural consistency
+Each type is defined in exactly one module; no type is re-defined or shared
+across modules (RFC-0004 §3 one-owner rule; design review §2.6).
 
-- **Scope (DN-35).** Iteration 5 = `trust` only. `trust` is Layer 1 (blueprint
-  §4.1); `secrets` (Layer 3, blueprint §8.6) is postponed and still precedes
-  `context` (Iteration 8), preserving Risk #9's mitigation. Blueprint §2 module
-  set `trust/{__init__,classes,sanitize,hostile}.py` is unchanged.
-- **Ownership (DN-36, DN-37).** `trust` owns RFC-0007. No name whose meaning
-  belongs to RFC-0009/0011 is defined here (RFC-0004 §3 one-owner rule). The
-  allowed `trust → schema` edge stays latent (DN-28 precedent); no new edge.
-- **Promotion (Q4).** No upgrade operation in `trust`; the only upward moves are
-  Observation→Fact (RFC-0005), Post-condition confirmation (RFC-0006), and
-  authenticated skill metadata (RFC-0011) — all owned elsewhere (RFC-0007 §3,
-  §5.1, §8, T6). Enforced as an invariant test.
-- **Sanitizer (DN-38) and result contract (Q6).** The sanitizer is containment,
-  not a trust grant (S1, T9); the result carries class + provenance (T8);
-  failure → Hostile (S6, T11). No redaction mechanism (RFC-0009) and no exact
-  catalogue (RFC-0012) are anticipated.
-- **Hostile (DN-39, Q8).** Fail-closed production paths only; quarantine is
-  in-memory; durable recording is RFC-0013's (Iteration 7). No detection
-  heuristics.
-- **Authority.** `trust` holds no authority from the RFC-0004 §7 matrix (no F
-  cell granted; it is an information-handling layer). It cannot "grant" trust —
-  it records the class a datum already has per RFC-0007's rules.
-- **Gates.** No production behavior is introduced at C0; the package-tree and
-  dependency-rule tests remain green.
+### Public surface map
 
-**Residual open items (reported, not resolved):** none of Q1–Q8. Draft rework
-risk on RFC-0007 (and RFC-0009/RFC-0011/RFC-0012, which own deferred parts of
-its §16 surface) remains a recorded risk (blueprint §9 #2), not a blocker. The
-pre-existing validator error (RFC-0004 §470 `'S1'`) is unchanged and unrelated.
+| Module | Public surface (`__all__`) |
+|---|---|
+| `trust/classes.py` | `CATEGORY_DEFAULTS`, `CATEGORY_ORIGINS`, `Classification`, `Datum`, `Demotion`, `PROVENANCE_LOSS_DEMOTION`, `ProvenanceState`, `TRUST_DOMAIN_POSTURES`, `TrustCategory`, `TrustClass`, `TrustDomain`, `classify`, `downgrade`, `join`, `meet` |
+| `trust/sanitize.py` | `DEFAULT_LIMIT`, `Sanitization`, `SanitizationStatus`, `bound`, `neutralize_control`, `quote`, `sanitize`, `strip_ansi`, `tame_unicode` |
+| `trust/hostile.py` | `DisclosureState`, `Quarantine`, `contaminate`, `quarantine` |
 
-### Commit C0 status
+The facade (`trust/__init__.py`) re-exports nothing and leaks no internal
+placeholder (design review §4).
 
-Commit C0 (this commit) is the Iteration 5 docs-ratification: decision notes
-DN-35…DN-39 and the Q1–Q8 resolution table above. **Iteration 5 implementation
-is unblocked** and proceeds with Commit C1 (`classes.py`: lattice +
-classification) once C0 is ratified, per the design review §6/§7 plan.
+### Layer-1 conformance summary
+
+Verified by `tests/test_trust_conformance.py` (mirrors
+`test_verification_conformance.py`):
+
+- **Imports.** Only stdlib + `trust` itself; the declared `trust → schema` edge
+  (blueprint §4.1) stays **latent** — no trust module consumes it (DN-37).
+- **No forbidden imports.** No authority-bearing or higher-layer package
+  (collectors, factlayer, verification, secrets, policy, executor, audit,
+  context, providers, skills, core, cli, systemmodel); no I/O-,
+  concurrency-, or persistence-capable stdlib.
+- **No dependency-edge violations.** `test_dependency_rules.py` green;
+  declared and observed import graphs acyclic.
+- **No forbidden runtime logic.** No top-level control flow; module-level code
+  builds only constant data; no I/O, persistence, or execution calls anywhere.
+- **Frozen + slots.** Every public dataclass (`Datum`, `Classification`,
+  `Demotion`, `Sanitization`, `Quarantine`) is frozen and slot-based (DN-34).
+- **No ownership overlap / no placeholder leaks.** `__all__` equals the
+  ownership map per module; names unique across modules; no underscore-prefixed
+  name exported; facade re-exports nothing.
+- **Package tree unchanged.** `trust/{__init__,classes,sanitize,hostile}.py`
+  matches blueprint §2 exactly (`test_packages.py`); `schema` never imports
+  `trust`.
+
+### Trust invariants coverage summary
+
+Verified by `tests/test_trust_invariants.py`. RFC-0007 §11 (S1–S8) and the
+layer-enforceable §13 T-invariants (T8, T9, T10, T11, T12; design review §3 —
+T1–T7 are construction/execution-side and enforced at `core`) each have tests:
+
+| Invariant | What is verified |
+|---|---|
+| S1 / T9 | Sanitization never upgrades: class preserved (4×9 matrix); lost provenance → Hostile |
+| S2 (§5.1) | Meet rule is monotonic; lattice laws hold (idempotent, commutative, associative, absorption, order duals) |
+| S3 | Content survives neutralization — escaped/tamed, never deleted; TAB/NEWLINE preserved |
+| S4 | Quoted representation is contained and visible (`«…»`) |
+| S5 | Secrets are never classified or inferred — classify/sanitize are content-blind; no `Secret` category (DN-36); no secret-named surface |
+| S6 / T11 | Failure fails closed to Hostile and the Operator is told (non-empty reason) |
+| S7 | Determinism: same input, same output for every public operation |
+| S8 | Bounding always marks truncation (`…`); non-positive bound rejected |
+| T8 | Trust label and provenance travel together — structurally and through classify→sanitize→quarantine |
+| T10 | Demotion is monotonic: one step toward Hostile, reason preserved, Hostile floor |
+| T12 | Contagion only downgrades, never upgrades, never manufactures Hostile |
+| DN-39 | Hostile produced only by the fail-closed paths — exhaustive (category × provenance) enumeration: `classify` (lost, Observation), `sanitize` (lost); `quarantine`/`contaminate` never fabricate |
+
+### Dependency and ownership verification
+
+- `tests/test_dependency_rules.py` green: `trust` imports only within
+  `ALLOWED["trust"] = {"schema"}` + stdlib + itself; no forbidden edge; graphs
+  acyclic.
+- `tests/test_packages.py` green: tree matches blueprint §2 exactly.
+- One owner per name: no name whose meaning belongs to RFC-0009/0011 (Secrets,
+  Skill Manifest, Skill Code) is defined here (DN-36); each type lives in
+  exactly one module.
+- **No authority.** `trust` holds no RFC-0004 §7 authority cell; it records the
+  class a datum already holds. There is no promotion path (T6; Q4), no
+  detection (DN-39; RFC-0012 §16.6), no redaction (S5; RFC-0009), and no
+  persistence (DN-34; RFC-0013).
+
+### Remaining deferred items
+
+Recorded only; nothing is invented. Each belongs to a later iteration:
+
+| Deferred item | Owning future iteration / RFC |
+|---|---|
+| `secrets` package (RFC-0009) — redaction mechanics, the S5 enforcement side | next iteration (DN-35 re-orders blueprint §8.6) |
+| Exact sanitization mechanics catalogue (summarization, detection) | RFC-0012 (DN-38) |
+| Durable quarantine/evidence recording, retention, audit wiring | RFC-0013 (Iteration 7; DN-34, Q8) |
+| Final output-size bounds | RFC-0005 §16.2 (`DEFAULT_LIMIT` is provisional) |
+| Provider View assembly / Context construction (T10) | RFC-0012 `context` (Iteration 8) |
+| Runtime enforcement of RFC-0002 invariants 4/5 (Provider View mediation, no untrusted interpolation; T3) | `core` — made testable here (C4), enforced there |
+| RFC-0007 Draft rework risk (and RFC-0009/0011/0012 deferred parts) | RFC acceptance / amendment (blueprint §9 #2) |
+
+### Completion verdict
+
+- Iteration 5 implementation is **complete**.
+- **Layer-1 Definition of Done is satisfied** (blueprint §8.3 trust half; design
+  review §7 C4): sanitize-never-upgrades (S1, T9) and fail-to-Hostile (S6,
+  T11/T12) pass, each with a test; every layer-enforceable T-invariant has a
+  test.
+- **C0–C5 are complete.** The `trust` layer is complete per blueprint §8.3 and
+  the design review.
+- Full suite: 1049 tests pass; ruff, format, build, and pre-commit are clean.
+
+### Readiness for Iteration 6
+
+Iteration 6 is the **`secrets` package** (RFC-0009; blueprint §8.6, re-ordered
+by DN-35 so it follows `trust` and still precedes `context`, Iteration 8). It is
+**unblocked**: the trust layer is complete, the suite is green (1049 tests), and
+its dependency on `trust` is preserved (blueprint §4.1: `secrets → {schema,
+trust}`). Iteration 6 begins with its own design review and ratification before
+implementing the `secrets` package.
 
 ---
 
