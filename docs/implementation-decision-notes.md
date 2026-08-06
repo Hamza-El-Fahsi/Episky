@@ -1207,3 +1207,289 @@ tests), the Layer-3 conformance and invariant suites (`test_secrets_conformance.
 `test_secrets_invariants.py`) enforce the ratified readings, and the next
 iteration is the `policy` package (RFC-0008) that DN-40 shifted to follow
 `secrets`. No new decision note is required for this closeout.
+
+---
+
+# Iteration 7 decision notes (Policy layer)
+
+The notes below record the Iteration 7 ratification (Operator, 2026-08-06) of
+the ten questions posed by `docs/iteration-7-design-review.md` §10 (Q1–Q10).
+They fix the reading of the reported ambiguities so that a reported ambiguity
+cannot reappear in a later iteration, and they **unblock Iteration 7
+implementation** (design review §16–§17 readiness). All ten questions are
+recorded as decision notes DN-45…DN-54: each fixes an iteration-scope or
+layer-mechanics reading that the frozen corpus leaves open. RFC-0008 §2 is
+architecture-only ("no APIs, no pseudocode, no algorithms, no data formats"),
+so each question resolves an *implementation interpretation*, never an
+architectural expansion; the corpus supplies the grounding. No question
+requires an RFC amendment, a `schema`/`systemmodel`/`trust`/`factlayer`/
+`verification`/`secrets` change, a new module (the four `policy` modules are
+already scaffolded per blueprint §2), or a new dependency edge beyond the
+declared `policy → {schema, trust, factlayer}` set (blueprint §4.1). The
+grounding RFCs cited below are Accepted where marked; RFC-0008 and RFC-0021 are
+Draft, whose rework risk is accepted per blueprint §9 #2 (the DN posture of
+Iterations 1–6).
+
+## DN-45 — Iteration 7 scope is the `policy` layer; the blueprint §8.7/§8.8 numbering is superseded by DN-35/DN-40
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 7 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §10 Q1 |
+| Grounding | DN-35 (secrets postponed to the iteration after `trust`), DN-40 (Iteration 6 = `secrets`; `policy` shifts to the following iteration); blueprint §8.7 (`policy`, original numbering "Iteration 6"), §8.8 (`executor` + `audit`, original numbering "Iteration 7"); RFC-0000 §4 (RFC-0008 entry: Security, Required), §7 (writing order); consistency report §Readiness for Iteration 7 ("Iteration 7 is the `policy` package ... with `executor` + `audit` following") |
+| Embodied in | Iteration 7 implementation plan (docs-ratification commit C0) |
+
+**Decision.** Iteration 7 executes as the **Policy Layer (`policy` only)**
+(RFC-0008; blueprint §8.7, re-ordered by DN-35/DN-40 to follow `secrets`). The
+blueprint §8.7/§8.8 numbering is **superseded by DN-35/DN-40's re-order**:
+`policy` is Iteration 7, `executor` + `audit` (blueprint §8.8) shift to
+Iteration 8, `context` to Iteration 9, `providers` + `skills` to Iteration 10,
+and `core` to Iteration 11. The blueprint text itself is **left unchanged** —
+the renumbering is recorded here and in the consistency report as a reported
+tension, and the blueprint stands until RFC-0020 (the authoritative build
+order) lands. No RFC is modified.
+
+**Effect.** Iteration 7's Definition of Done and commit plan contain `policy`
+work only (classification, gate table, token mint/validate, default-deny policy
+loading; I-7, I-11, RFC-0001 §8.2, P8/P9/P10/P13). The blueprint §8.8
+`executor`+`audit` DoD is not part of Iteration 7. This note executes DN-35/
+DN-40's promise and mirrors the DN-13/DN-35/DN-40 scope-fixing pattern.
+
+## DN-46 — `classify` consumes `schema.Action` + a referenced-Fact set; the `schema` edge is exercised
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 7 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §10 Q2 |
+| Grounding | RFC-0008 §5 (the Action is the atomic approval unit — "a structured object with a description, risk-relevant properties, and verification criteria", RFC-0003 §2.6), §6 (classification reads "the Action's structured description and the Facts it is built on"); blueprint §4.1 (`policy → schema` edge allowed); RFC-0005 §3 (canonical Fact types); DN-1 (final signatures RFC-0020's); DN-37/DN-44 precedent (internal abstract inputs were used for the `trust`/`secrets` classifiers because no canonical object was the subject — the inverse holds here) |
+| Embodied in | Iteration 7 implementation plan, Commit C1 |
+
+**Decision.** The classifier entry in `policy/classify.py` consumes the
+canonical **`schema.Action`** (RFC-0003 §2.6) together with a **referenced-Fact
+set passed at the entry** — the Facts the classification is built on (RFC-0008
+§6). This deliberately departs from the `secrets`/`trust` internal-abstract-input
+pattern (DN-37/DN-44), which applied where no canonical object existed; here the
+Action *is* the object the RFC classifies (RFC-0008 §5) and the `schema` edge is
+declared in blueprint §4.1. "Referenced Facts" is read as: the Facts passed at
+the classification entry by the caller (`core`, Iteration 11, invokes it per
+RFC-0002 §6.2); Step preconditions are the Plan view and are not re-derived by
+`policy`. No new input type is invented beyond the canonical `schema` types.
+
+**Effect.** `classify` operates over the canonical vocabulary; the declared
+`policy → schema` edge is exercised (unlike the `systemmodel` edge, which stays
+latent per DN-47); no new dependency is introduced.
+
+## DN-47 — Internal canonical risk-property vocabulary in `classify.py`; the `systemmodel`/State-Domain edge stays latent
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 7 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §10 Q3 |
+| Grounding | RFC-0008 §6 (classification reads "deterministic properties of the Action" — mutates-or-reads a State Domain, subsystems touched, elevation, reversibility, boot/auth risk — "using RFC-0021 §6's State Domains as the vocabulary"; "No rule uses a percentage, a probability, a severity score, or the proposer's words"), §3 non-scope (machine subsystem and state-domain modeling is RFC-0021's); blueprint §4.1 (Layer 3 allowed imports: `schema`, `trust`, `factlayer` — **no `systemmodel`**); `schema.Action.risk_properties` ("Canonical risk-relevant property names (RFC-0008 §6)", `tuple[str, ...]`, built Iteration 1); RFC-0021 (Draft) §6; DN-9 (type in `schema`, semantics owned elsewhere), DN-37/DN-28/DN-44 (latent-edge precedent) |
+| Embodied in | Iteration 7 implementation plan, Commit C1 |
+
+**Decision.** The State-Domain vocabulary RFC-0008 §6 references is carried as
+**canonical property names** on `schema.Action.risk_properties`; the
+name→State-Domain semantics belongs to RFC-0021 (Draft) and is **latent** this
+iteration. `policy/classify.py` owns an **internal canonical risk-property
+vocabulary** — the deterministic property set §6 lists (mutates-a-State-Domain,
+reads-a-State-Domain, touches-packages/services/configuration/network/users/
+storage/security-state, uses-elevation, reversible, boot/auth-affecting) —
+keyed by the names the Action declares. Classification is a membership test over
+these properties. No `policy → systemmodel` import is introduced (blueprint
+§4.1 forbids the edge); the `systemmodel` edge stays authorized-but-unused.
+
+**Effect.** The `systemmodel` edge remains latent (DN-9/DN-37/DN-44 pattern);
+the conformance test allows the edge's absence; no new dependency edge is
+introduced, and no RFC-0021 type is consumed while it is Draft.
+
+## DN-48 — The token carries an opaque in-memory machine-state snapshot reference; the State-Domain diff is runtime-owned
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 7 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §10 Q4 |
+| Grounding | RFC-0008 §8 (token bound to "the Machine State it was approved against"; invalidation on a change to "any State Domain it depends on (RFC-0021 §6)"), §9 (re-validation compares "State Domains the Action touches against the snapshot the token was approved against"), §2 (architecture only — "no data formats"), §3 non-scope (state-domain modeling is RFC-0021's); RFC-0002 invariant 11 (token bound to its action, its time, and the machine state it was approved against); RFC-0021 (Draft) §6; DN-19/DN-34/DN-41 (in-memory records precedent) |
+| Embodied in | Iteration 7 implementation plan, Commit C3 |
+
+**Decision.** The machine-state snapshot a token is bound to (RFC-0008 §8;
+RFC-0002 invariant 11) is represented this iteration as an **opaque in-memory
+snapshot reference**: the snapshot's identity plus the Facts it was approved
+against (a metadata record, DN-19/DN-34/DN-41 precedent). Boundary re-validation
+(RFC-0008 §9) is the deterministic combination of (a) Action-identity match
+(§9.3), (b) referenced-Fact staleness via `factlayer` freshness (§9.1), and (c)
+the machine-state check (§9.2) as a **runtime-supplied state-change signal** —
+the concrete State-Domain diff is RFC-0021's vocabulary and the runtime's
+mechanism (RFC-0008 §2, §3), exercised at `executor`/`core` in later
+iterations. Any uncertainty fails closed: refuse, disclose, re-present
+(RFC-0008 §9; RFC-0002 §2.8; RFC-0007 T11).
+
+**Effect.** C3 builds the re-validation mechanics over an in-memory snapshot
+reference; the RFC-0021 State-Domain diff is recorded as a deferred,
+runtime-owned item, not built here.
+
+## DN-49 — `mint` requires an explicit decision input; no input or rejection mints nothing
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 7 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §10 Q5 |
+| Grounding | RFC-0008 §8 Creation ("mints the token only after (a) classified and gated and (b) the Operator has made an explicit decision — approve, auto-permit, or override"), §12 ("Nothing is approved by silence... no 'accept after timeout'"), §13 P5 (explicit; nothing proceeds on silence), P10 (a Blocked Action proceeds only by an explicit, audited override); RFC-0004 §4.8 (the Approval Engine is the Operator's instrument, matrix C11; "May never decide: whether to approve"); RFC-0002 §2.7 (approve / override a block / reject); RFC-0008 §2 (architecture only — the interface is not fixed here) |
+| Embodied in | Iteration 7 implementation plan, Commit C3 |
+
+**Decision.** `mint` in `policy/tokens.py` takes an **explicit decision input**
+— APPROVE, AUTO_PERMIT, or OVERRIDE (RFC-0008 §8), plus REJECT (RFC-0002
+§2.7) — as an argument, never by inference and never on silence. An absent
+decision, a rejection, or a timeout yields **no token and consumes nothing**
+(P5; RFC-0008 §12 "no 'accept after timeout'"). AUTO_PERMIT is accepted only
+for an allowlisted read-only Action (RFC-0008 §6; RFC-0001 §8.3);
+auto-permission is per-Action, never a reusable pass. OVERRIDE is accepted only
+for a Blocked Action and produces an override-scoped token plus an override
+record (P10; RFC-0002 invariant 12). The decision's delivery path (`core`/`cli`)
+is a later iteration; this layer only defines and consumes the input.
+
+**Effect.** P5/P10/I-12 are testable at the layer now; `mint` never decides
+whether to approve (RFC-0004 §4.8 C11) and never mints on its own authority (A6).
+
+## DN-50 — P13/I-13 satisfied as in-memory issuance records now; the durable Audit write is `audit`'s DoD
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 7 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §10 Q6 |
+| Grounding | RFC-0008 §8 ("Issuance is written to the Audit before execution may proceed (RFC-0002 invariant 13; RFC-0004 A10)"), §13 P13 (approval is recorded before it is spent), §15 ("if the Audit cannot record, the consequence it precedes is blocked"), §3 non-scope (Audit and transcript mechanics is RFC-0013's); RFC-0002 invariant 13; RFC-0004 A10; RFC-0013 (Draft; `audit`, Iteration 8); DN-34 (in-memory evidence-bearing OutcomeRecord), DN-41 (in-memory metadata-only records), DN-43 (layer-boundary tests now; cross-component enforcement is the owning package's DoD) |
+| Embodied in | Iteration 7 implementation plan, Commit C3 |
+
+**Decision.** The blueprint §8.7 DoD's **P13 is satisfied at the policy layer as
+layer-boundary records**: every mint (approve/auto-permit/override) and every
+rejection produces an in-memory metadata record held by the layer, and a
+**layer-boundary test** proves no token is spendable without a prior
+issuance/override/auto-permit/rejection record (P13; RFC-0002 invariant 13;
+RFC-0004 A10). The **durable Audit write** of these records is the Definition of
+Done of `audit` (Iteration 8, RFC-0013), recorded not dropped, per the DN-43
+layer-boundary precedent. A consequence never proceeds unrecorded or unpresented
+(RFC-0008 §15).
+
+**Effect.** C3's P13 tests are boundary tests on this package; the durable
+write is named against `audit` in the consistency-report deferred-items table.
+
+## DN-51 — Default-deny policy-loading mechanism now; the shipped contents are RFC-0020's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 7 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §10 Q7 |
+| Grounding | blueprint §8.7 (work: "default-deny policy loading"); RFC-0008 §7 (Policy evaluation: "the deterministic rules the project ships and the Operator sets within their authority" — default-deny, allowlists, elevation limits, standing-approval bounds; "Where no rule matches, the decision is blocked — default deny and fail closed"), §13 P3, §16 ("The specific default contents of the read-only allowlist, standing-approval defaults, and expiry windows are policy content for RFC-0020"); RFC-0001 §8.2 (default deny, explicit allow), §8.12 (fail closed); RFC-0004 §4.7; DN-1 (no production content before RFC-0020) |
+| Embodied in | Iteration 7 implementation plan, Commit C2 |
+
+**Decision.** `policy/policy.py` builds the deterministic **policy mechanism**
+(RFC-0008 §7) this iteration: the rule set, a **structural default-deny rule** —
+no rule matches → blocked (P3; RFC-0001 §8.2) — the read-only-allowlist
+membership function (empty by default), elevation bounds (DN-53), per-class
+retry ceilings (RFC-0008 §8), and a **fail-closed `load`** that blocks and
+discloses on an unparseable rule (P3; RFC-0001 §8.12). The **specific shipped
+contents** — which Actions are allowlisted, the expiry windows, the
+standing-approval defaults, the absolute-block list — are **RFC-0020's**
+(RFC-0008 §16) and are not invented here (DN-1; blueprint §8.0).
+
+**Effect.** C2 implements the mechanism, not the content; the allowlist is empty
+until RFC-0020, and default-deny is enforced by construction.
+
+## DN-52 — Standing approvals: representation + evaluation mechanism now; no shipped defaults
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 7 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §10 Q8 |
+| Grounding | RFC-0008 §7 (Policy evaluation: "whether a standing approval applies and is in scope and unexpired"), §8 (a standing approval is a Policy construct that pre-mints a "narrowly scoped, expiring authorization" for a class of Actions within a defined scope and a risk-class ceiling; "never covers a Blocked Action", "never raises a class ceiling", always visible), §13 P11 (scoped, bounded, expiring, never blanket); RFC-0001 §8.3 (standing approvals expire; no "always yes"); RFC-0008 §16 (standing-approval defaults — RFC-0020) |
+| Embodied in | Iteration 7 implementation plan, Commits C2/C3 |
+
+**Decision.** The standing-approval **construct** (RFC-0008 §8) is represented and
+evaluated this iteration: a Policy record with a defined scope, a risk-class
+ceiling, and an expiry; evaluation answers "does it apply, is it in scope, is it
+unexpired" (RFC-0008 §7, Policy-evaluation row) and never covers a Blocked
+Action and never raises a ceiling (P11; RFC-0001 §8.3). No **shipped defaults**
+are invented — which standing approvals the project ships is RFC-0020's
+(RFC-0008 §16). Any pre-minting is exercised through the same `mint` machinery
+(DN-49) and stays per-Action at execution; the construct itself never becomes
+blanket authority.
+
+**Effect.** P11 is testable at the mechanism level (scope/ceiling/expiry/
+Blocked-exclusion) with no policy content invented.
+
+## DN-53 — Elevation: an elevation risk-property makes the class at least Consequential and the token records bounds; the mechanism is `executor`'s
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 7 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §10 Q9 |
+| Grounding | RFC-0008 §8 (Elevation: "an elevated Action is at least Consequential (§6), its elevation bounds are part of the token"), §13 P12 (explicit, per-action, scoped, and revoked; "an elevated Action's token carries its elevation bound"), §6 (Consequential includes "anything requiring elevation"); RFC-0001 §8.6 (explicit, scoped, re-authenticated); RFC-0008 §3 non-scope (the elevation mechanism is the machine's own, RFC-0021 §3.3); blueprint §2 (`executor/elevation.py`), §8.8 (`executor`, Iteration 8) |
+| Embodied in | Iteration 7 implementation plan, Commits C1/C3 |
+
+**Decision.** Classification reads an **elevation** risk-property from the
+Action's canonical properties (RFC-0008 §6; DN-47) and maps an elevated Action
+to **at least Consequential** (RFC-0008 §8). The token records the **elevation
+bounds** the approved Action declared (§8 scope list), so P12's "the token
+carries its elevation bound" is testable now. The **mechanism** — how the
+machine's own privilege-escalation is invoked and revoked — is the
+`executor.elevation` module's (blueprint §2, §8.8; RFC-0021 §3.3; RFC-0001
+§8.6) and is not built here (P12's execution half). Elevation never persists and
+never covers unapproved work (RFC-0008 §8).
+
+**Effect.** The at-least-Consequential rule and the token's elevation field are
+testable at C1/C3; invocation and revocation are `executor`'s DoD (Iteration 8).
+
+## DN-54 — Plan envelope: meet rule + envelope-scoped token now; re-presentation is `core`'s
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 7 ratification) |
+| Date | 2026-08-06 |
+| Resolves | design review §10 Q10 |
+| Grounding | RFC-0008 §6 (a Plan's class is the meet of its Steps' classes — "the most restrictive among them", RFC-0007 §5.1), §8 Scope ("for a plan envelope — the set of Steps as presented (§11)"), §11 (envelope approval; "the envelope approves exactly the Steps that were shown"), §13 P6/P7 (envelope scoped to the shown Steps; consumed as Steps run); RFC-0002 §7 (a changed plan is re-normalized, re-classified, re-presented); blueprint §8.7 (DoD names no plan item; the §8.7 RFC basis is §6–§8, §10, §13, which includes §6's meet rule and §8's envelope scope but not §11's runtime re-presentation) |
+| Embodied in | Iteration 7 implementation plan, Commits C1/C3 |
+
+**Decision.** The **meet rule** (RFC-0008 §6) is implemented in `classify` — a
+Plan's class is the most restrictive of its Steps' classes — and the **envelope
+token** carries the presented Step set (RFC-0008 §8) so P6/P7 hold for an
+envelope: a deviation, or a Step whose token was consumed by a failed attempt,
+is re-approved, never inherited (RFC-0008 §8 single-use; RFC-0002 §7). **Plan
+re-presentation** after deviation, failure, or partial execution is a runtime
+(`core`) obligation (RFC-0002 §7, §2.8–§2.10; RFC-0008 §11) and is not built
+here; the layer provides the classification and the envelope token the runtime
+consumes.
+
+**Effect.** The meet rule and the envelope-scoped token are testable at C1/C3;
+deviation handling is recorded as `core`'s deferred item.
+
+### Q1–Q10 question status
+
+| §10 Q | Subject | Status | Where resolved |
+|---|---|---|---|
+| Q1 | Iteration scope / renumbering vs blueprint §8.7/§8.8 | **Ratified** | DN-45 (this file) |
+| Q2 | `classify` input: `schema.Action` + referenced Facts vs internal input | **Ratified** | DN-46 (this file) |
+| Q3 | Risk-property / State-Domain vocabulary without a `systemmodel` edge | **Ratified** | DN-47 (this file) |
+| Q4 | Machine-state snapshot representation / state-change detection | **Ratified** | DN-48 (this file) |
+| Q5 | Decision-input abstraction for `mint` (P5/P10 testable) | **Ratified** | DN-49 (this file) |
+| Q6 | P13/I-13 records without the Audit package | **Ratified** | DN-50 (this file) |
+| Q7 | Default-deny policy loading: mechanism vs RFC-0020 content | **Ratified** | DN-51 (this file) |
+| Q8 | Standing-approval construct in scope vs deferred | **Ratified** | DN-52 (this file) |
+| Q9 | Elevation representation (at-least-Consequential; bounds on token) | **Ratified** | DN-53 (this file) |
+| Q10 | Plan envelope: meet rule + envelope token vs deferred | **Ratified** | DN-54 (this file) |
+
+All ten §10 questions are resolved as decision notes; none requires an RFC
+amendment, a `schema`/`systemmodel`/`trust`/`factlayer`/`verification`/`secrets`
+change, a new module, or a new dependency edge. **Iteration 7 implementation is
+unblocked** (design review §16 readiness): C0 is this docs-ratification commit,
+and C1–C5 (the `policy` package: `classify.py`, `gates.py`, `policy.py`,
+`tokens.py`, the conformance suite, and the closeout) remain to be implemented
+per design review §12–§14.

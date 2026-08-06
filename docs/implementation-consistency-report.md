@@ -1177,13 +1177,94 @@ Recorded only; nothing is invented. Each belongs to a later iteration:
 
 ### Readiness for Iteration 7
 
-Iteration 7 is the **`policy` package** (RFC-0008; blueprint §8.7, re-ordered
-by DN-40 so it follows `secrets`), with `executor` + `audit` (RFC-0002/RFC-0004,
-RFC-0013) following. It is **unblocked**: the secrets layer is complete, the
-suite is green (1333 tests), and the deferred SC2–SC5 cross-component
-enforcement lands at its owning packages (`audit`, `context`, `providers`,
-`skills`) as recorded above (DN-43). Iteration 7 begins with its own design
-review and ratification before implementing the `policy` package.
+---
+
+## Iteration 7 — the `policy` layer (ratified)
+
+Iteration 7 implements the **Policy Layer** (`policy`, RFC-0008; blueprint
+§8.7, re-ordered by DN-35/DN-40 so it follows `secrets` and precedes
+`executor` + `audit`, Iteration 8). The full design review is
+`docs/iteration-7-design-review.md`; the ratified decisions are DN-45…DN-54 in
+`docs/implementation-decision-notes.md`. Commit C0 (this commit) is the
+**docs-ratification commit** (answers all ten design-review questions Q1–Q10 as
+decision notes); C1–C3 will implement and test the layer, C4 the conformance
+suite, C5 the completion record. No RFC is modified, no module exists outside
+the blueprint §2 tree (the four `policy` modules are already scaffolded per
+blueprint §2), and no dependency edge is added beyond the declared
+`policy → {schema, trust, factlayer}` set (blueprint §4.1).
+
+### Ratification summary
+
+- Q1–Q10 are **Ratified** as DN-45…DN-54 (`docs/implementation-decision-notes.md`).
+- Every answer derives from the frozen corpus. RFC-0008 §2 is architecture-only
+  ("no APIs, no pseudocode, no algorithms, no data formats"), so each DN
+  records an **implementation interpretation only** — never an architectural
+  expansion; none requires an RFC amendment.
+- The layer's load-bearing dependencies are **Accepted** (RFC-0001 §8.1–§8.12;
+  RFC-0002 §6.2, §9 invariants 1, 6, 7, 10, 11, 12, 13, 15; RFC-0004 §4.7/§4.8/
+  §7/§8; RFC-0007 §4.4, §5.1). RFC-0008 itself is Draft, whose rework risk is
+  accepted per blueprint §9 #2 (the DN posture of Iterations 1–6); RFC-0021
+  (the State-Domain vocabulary RFC-0008 §6 cites) stays latent per DN-47.
+- Cross-component obligations (P1, P11, P12, the durable half of P13, the
+  RFC-0002 §6.2 consultation edges, and the SC9/SC10 boundaries carried from
+  DN-43) are recorded against `executor`/`audit`/`core`, not dropped.
+- Readiness: **READY for C1** — the design review §16 status is Ratified, and
+  C1 (deterministic risk classification) is unblocked.
+
+### Q1–Q10 verdict table
+
+| §10 Q | Subject | Verdict | Governing RFC / note |
+|---|---|---|---|
+| Q1 | Iteration scope / renumbering vs blueprint §8.7/§8.8 | `policy` is Iteration 7; `executor`+`audit` shift to Iteration 8; blueprint §8.7/§8.8 numbering superseded, blueprint text stands until RFC-0020 | **DN-45**; DN-35/DN-40; blueprint §8.7/§8.8; RFC-0000 §4/§7 |
+| Q2 | `classify` input: `schema.Action` + referenced Facts vs internal input | `schema.Action` + a referenced-Fact set; the `schema` edge is exercised (unlike DN-37/DN-44, which applied where no canonical object existed) | **DN-46**; RFC-0008 §5/§6; blueprint §4.1 |
+| Q3 | Risk-property / State-Domain vocabulary without a `systemmodel` edge | Internal canonical risk-property vocabulary in `classify.py`; `systemmodel` edge latent (DN-9/DN-37/DN-44); RFC-0021 owns the name→State-Domain semantics on acceptance | **DN-47**; RFC-0008 §6/§3; RFC-0021 (Draft) §6 |
+| Q4 | Machine-state snapshot / state-change detection | Opaque in-memory snapshot reference (identity + Facts); re-validation = identity + `factlayer` freshness + runtime-supplied state-change signal; the State-Domain diff is runtime-owned | **DN-48**; RFC-0008 §8/§9/§2/§3; RFC-0002 I-11 |
+| Q5 | Decision-input abstraction for `mint` | `mint` requires an explicit decision input (approve/auto-permit/override/reject); no input or rejection mints nothing (P5); override only for a Blocked Action (P10) | **DN-49**; RFC-0008 §8/§12/§13; RFC-0004 §4.8 (C11) |
+| Q6 | P13/I-13 records without the Audit package | In-memory issuance/override/auto-permit/rejection records + layer-boundary test now; the durable Audit write is `audit`'s DoD (DN-43 precedent) | **DN-50**; RFC-0008 §8/§13/§15; RFC-0002 I-13; RFC-0004 A10 |
+| Q7 | Default-deny policy loading: mechanism vs content | Mechanism now (rule set, default-deny, empty allowlist, elevation bounds, retry ceilings, fail-closed `load`); shipped contents RFC-0020's | **DN-51**; blueprint §8.7; RFC-0008 §7/§16; RFC-0001 §8.2/§8.12 |
+| Q8 | Standing-approval construct | Representation + evaluation mechanism (scope/ceiling/expiry; never covers Blocked; never raises a ceiling); no shipped defaults | **DN-52**; RFC-0008 §7/§8/§13 P11; RFC-0001 §8.3 |
+| Q9 | Elevation representation | Elevation risk-property → at least Consequential; token records bounds; mechanism/revocation is `executor.elevation` (Iteration 8) | **DN-53**; RFC-0008 §8/§13 P12; RFC-0001 §8.6; RFC-0021 §3.3 |
+| Q10 | Plan envelope: meet rule + envelope token | Meet rule + envelope-scoped token (presented Step set); re-presentation is `core`'s (RFC-0002 §7) | **DN-54**; RFC-0008 §6/§8/§11; RFC-0002 §7 |
+
+### Ratified decisions (DN-45 … DN-54)
+
+| Note | Decision | Resolves |
+|---|---|---|
+| DN-45 | Iteration 7 = `policy` layer only; blueprint §8.7/§8.8 numbering superseded by DN-35/DN-40's re-order; blueprint text stands until RFC-0020 | §10 Q1 |
+| DN-46 | `classify` consumes `schema.Action` + a referenced-Fact set; the `schema` edge is exercised | §10 Q2 |
+| DN-47 | Internal canonical risk-property vocabulary in `classify.py`; the `systemmodel`/State-Domain edge stays latent | §10 Q3 |
+| DN-48 | Token carries an opaque in-memory machine-state snapshot reference; the State-Domain diff is runtime-owned | §10 Q4 |
+| DN-49 | `mint` requires an explicit decision input; no input or rejection mints nothing (P5); override only for Blocked (P10) | §10 Q5 |
+| DN-50 | P13/I-13 satisfied as in-memory issuance records now; the durable Audit write is `audit`'s DoD | §10 Q6 |
+| DN-51 | Default-deny policy-loading mechanism now; the shipped contents are RFC-0020's | §10 Q7 |
+| DN-52 | Standing approvals: representation + evaluation mechanism now; no shipped defaults | §10 Q8 |
+| DN-53 | Elevation risk-property → at least Consequential; token records bounds; mechanism is `executor`'s | §10 Q9 |
+| DN-54 | Plan envelope: meet rule + envelope-scoped token now; re-presentation is `core`'s | §10 Q10 |
+
+### Implementation scope
+
+- **C1** `feat(policy): deterministic risk classification (RFC-0008 §6; RFC-0002 invariant 7; P2, P3, P4)` — `classify.py` (DN-46, DN-47, DN-53, DN-54).
+- **C2** `feat(policy): gate table and default-deny policy loading (RFC-0008 §7; RFC-0001 §8.2; P3)` — `gates.py` + `policy.py` (DN-51, DN-52).
+- **C3** `feat(policy): Approval Token mint/validate (RFC-0008 §8, §10; RFC-0002 invariant 11; P5–P10, P13, P14)` — `tokens.py` (DN-48, DN-49, DN-50, DN-54).
+- **C4** `test(policy): Layer-3 conformance and P-invariant suite` — conformance + invariants (incl. the SC9 structured-inputs-only boundary test).
+- **C5** `docs: record Iteration 7 completion and policy conformance` — closeout.
+
+Deferred (recorded, not dropped): the RFC-0002 §6.2 consultation edges and plan
+re-presentation (`core`); independent executor token enforcement and the
+elevation mechanism (`executor`); the durable Audit write and the
+allowlist/standing-approval/expiry/absolute-block contents (RFC-0020); the
+RFC-0021 State-Domain diff (runtime); the SC10 elevation boundary (`executor`,
+DN-43).
+
+### Readiness for C1
+
+**Ready.** The design review is ratified (Q1–Q10 → DN-45…DN-54), the suite
+remains green (1333 tests), and C1 (`classify.py`) is unblocked: `schema.Action`
+exists (Iteration 1), the four `policy` modules are scaffolded (Iteration 0),
+and the `policy → {schema, trust, factlayer}` edges are declared in
+`tests/test_dependency_rules.py` (Iteration 0). C1 begins the implementation of
+the deterministic risk classifier per design review §12/§14 and DN-46/DN-47/
+DN-53/DN-54.
 
 ---
 
