@@ -474,6 +474,16 @@ in order C0→C5, each satisfying its §7 DoD before the next begins. C1–C5 (t
 `secrets` package: `classify.py`, `redact.py`, `store.py`, the conformance
 suite, and the closeout) remain to be implemented per §6/§7.
 
+**Post-implementation status (Iteration 6 closeout):** Q1–Q5 were ratified and
+recorded as DN-40…DN-44 before C0, and the layer has now been **fully
+implemented and validated** — C0–C5 complete (§6/§7 mapping; `secrets` shipped
+on `iteration/6-secrets`), the `secrets` layer is complete per blueprint §8.6
+(re-ordered by DN-35/DN-40), the suite is green (1333 tests), and the next
+iteration is the `policy` package (RFC-0008), shifted to follow `secrets` by
+DN-40, with `executor` + `audit` following. The deferred SC2–SC5 cross-component
+enforcement is recorded against `context`/`audit`/`providers`/`skills` per
+DN-43.
+
 ---
 
 ## Consistency review against the Blueprint and governing RFCs

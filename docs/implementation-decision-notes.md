@@ -1185,6 +1185,25 @@ DN-37/DN-28.
 All five §5 questions are resolved as decision notes; none requires an RFC
 amendment, a `schema`/`systemmodel`/`trust`/`factlayer`/`verification`/`policy`
 change, a new module, or a new dependency edge. **Iteration 6 implementation is
-unblocked** (design review §10 readiness). Commit C0 (this commit) is the
-docs-ratification commit; C1–C5 implement and validate the layer per the design
-review §6/§7 plan.
+unblocked** (design review §10 readiness) and is now **complete**: the planned
+commits shipped as `0281e13` (C1, classification), `9ac2ebf` (C2, redaction),
+`fae6dcb` (C3, Secure Store abstraction), `ca3f3cb` (C4, Layer-3 conformance and
+SC-invariant tests), with this closeout commit (C5) recorded in
+`docs/implementation-consistency-report.md` (Iteration 6 section).
+
+### DN-40 … DN-44 completion status
+
+| Note | Decision | Status | Embodied in | Validated by |
+|---|---|---|---|---|
+| DN-40 | Iteration 6 = `secrets` layer only; blueprint §8.6/§8.7 numbering superseded by DN-35's re-order; `policy` shifts; blueprint text stands until RFC-0020 | **Implemented** | C0 (scope); C1–C4 | `secrets` layer complete; `policy` untouched |
+| DN-41 | Secure Store abstraction over in-memory metadata-only records; a value exists only at the consume boundary; OS-store mechanics RFC-0020's | **Implemented** | C3 (`store.py`) | `test_secrets_store.py`; SC1/SC6/SC7/SC8/SC12/SC15 tests |
+| DN-42 | Redaction framework + minimal non-exhaustive catalogue now, consuming `trust.sanitize`; exact catalogue RFC-0020/RFC-0012's | **Implemented** | C2 (`redact.py`) | `test_secrets_redact.py`; SC13/SC14, S1/T9 tests |
+| DN-43 | SC2–SC5 satisfied as layer-boundary tests now; cross-component enforcement is the owning packages' DoD | **Implemented** | C4 (conformance + invariant boundary tests) | `test_secrets_conformance.py`/`test_secrets_invariants.py` SC2–SC5 |
+| DN-44 | Classifier on an internal abstract input; value/metadata split; `schema` edge latent | **Implemented** | C1 (`classify.py`) | `test_secrets_classes.py`; latent-edge conformance test |
+
+**Iteration 6 completion note.** All ratified Secrets-layer decisions
+(DN-40…DN-44) are implemented and validated: the full suite is green (1333
+tests), the Layer-3 conformance and invariant suites (`test_secrets_conformance.py`,
+`test_secrets_invariants.py`) enforce the ratified readings, and the next
+iteration is the `policy` package (RFC-0008) that DN-40 shifted to follow
+`secrets`. No new decision note is required for this closeout.

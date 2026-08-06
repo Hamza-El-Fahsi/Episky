@@ -8,8 +8,8 @@ layer plus the ratified `schema` change (DN-9); Iteration 3 implemented the
 `factlayer` + `collectors` pipeline (blueprint §8.4); Iteration 4 implemented
 the `verification` layer (blueprint §8.5, DN-25…DN-34); Iteration 5 implemented
 the `trust` layer (blueprint §8.3 trust half, RFC-0007, DN-35…DN-39); Iteration
-6 ratifies the `secrets` layer (RFC-0009; blueprint §8.6 re-ordered by DN-35;
-DN-40…DN-44). This
+6 implemented the `secrets` layer (RFC-0009; blueprint §8.6 re-ordered by
+DN-35/DN-40; DN-40…DN-44). This
 report is updated at the end of each iteration and verified against
 `docs/architecture-implementation-blueprint.md`, the design reviews, and the
 decision notes.
@@ -992,16 +992,30 @@ implementing the `secrets` package.
 
 ---
 
-## Iteration 6 — the `secrets` layer (ratification, Commit C0)
+## Iteration 6 — the `secrets` layer (complete)
 
 Iteration 6 implements the **Secrets Layer** (`secrets`, RFC-0009; blueprint
 §8.6, re-ordered by DN-35 so it follows `trust` and still precedes `context`,
 Iteration 8). The full design review is `docs/iteration-6-design-review.md`;
 the ratified decisions are DN-40…DN-44 in
-`docs/implementation-decision-notes.md`. Commit C0 is the **docs-ratification
-commit**: it answers all five design-review questions (Q1–Q5) as decision notes
-and **unblocks Iteration 6 implementation** (design review §10). No RFC is
-modified and no source code, test, or scaffold change is introduced here.
+`docs/implementation-decision-notes.md`. Commit C0 was the **docs-ratification
+commit** (answers all five design-review questions Q1–Q5 as decision notes);
+C1–C4 implemented and tested the layer; C5 (this commit) records its
+completion. No RFC is modified, no new module exists outside the blueprint §2
+tree, and no dependency edge is added beyond the declared, latent
+`secrets → schema` edge (DN-44) and the `secrets → trust` edge activated by
+`redact.py` (DN-42).
+
+### Commit mapping (C0–C5)
+
+| Commit | Message | Content |
+|---|---|---|
+| C0 `464d238` | `docs: ratify Iteration 6 design review decisions` | Design-review ratification: Q1–Q5 resolved, DN-40…DN-44 recorded |
+| C1 `0281e13` | `feat(secrets): implement deterministic secret classification` | `classify.py`: the four-class secrecy predicate (§3), the three §7 origins, the six fixed §2 non-secret classes, the mechanical non-exhaustive `SECRET_SHAPES` catalogue, deterministic `classify` (rules 1–4, fail-closed to Hostile), the value-free `SecretMetadata`/`SecretClassification` (DN-44) — 75 tests |
+| C2 `9ac2ebf` | `feat(secrets): implement fail-closed redaction primitives` | `redact.py`: classifier-gated redaction replacing secret-shaped spans (§11) and containing via `trust.sanitize` bound/quote (S8/S4); WITHHELD fail-closed (SC14); never-upgrade (S1, T9); the fixed `REDACTION_MARKER` (DN-42) — 65 tests |
+| C3 `fae6dcb` | `feat(secrets): implement Secure Store abstraction` | `store.py`: provision/consume/invalidate/destroy/records over in-memory, metadata-only records (DN-41); value at the consume boundary only (SC1); purpose-scoping (SC7); closed consumer set (SC6); owner/custody split (SC8); destroy (SC12); invalidate-on-exposure (SC15) — 51 tests |
+| C4 `ca3f3cb` | `test(secrets): enforce Layer-3 conformance and secret invariants` | `test_secrets_conformance.py` (44 tests) + `test_secrets_invariants.py` (49 tests): Layer-3 rules, SC1–SC16, cross-layer invariants |
+| C5 `(this commit)` | `docs: record Iteration 6 completion and secrets conformance` | This closeout |
 
 ### Q1–Q5 resolution summary
 
@@ -1023,9 +1037,153 @@ modified and no source code, test, or scaffold change is introduced here.
 | DN-43 | SC2–SC5 satisfied as layer-boundary tests now; cross-component enforcement is the owning packages' DoD | §5 Q4 |
 | DN-44 | Classifier on an internal abstract input; value/metadata split; `schema` edge latent | §5 Q5 |
 
-**No source code is written in Commit C0.** Iteration 6 implementation begins at
-Commit C1 (`classify.py`) per the design review §6 plan, each commit satisfying
-its §7 DoD before the next begins.
+### Type → owner map
+
+| Type / value | Module | Owning RFC |
+|---|---|---|
+| `SecrecyClass`, `SecretOrigin`, `NonSecretDesignation` | `secrets/classify.py` | RFC-0009 §3, §7, §2 |
+| `SecretShape`, `SECRET_SHAPES` | `secrets/classify.py` | RFC-0009 §3 rule 3 (§30 OQ2 catalogue) |
+| `SecretDatum`, `SecretMetadata`, `SecretClassification` | `secrets/classify.py` | RFC-0009 §1 (value/metadata split); DN-44 |
+| `classify` | `secrets/classify.py` | RFC-0009 §3 rules 1–6; RFC-0001 §8.5 |
+| `RedactionStatus`, `Redaction`, `REDACTION_MARKER` | `secrets/redact.py` | RFC-0009 §11, §13 (SC13/SC14); DN-42 |
+| `redact` | `secrets/redact.py` | RFC-0009 §11, §13; RFC-0007 S1/S5/S8/T9 |
+| `Consumer`, `StoreStatus` | `secrets/store.py` | RFC-0009 §8, §13 |
+| `OPERATOR_OWNER`, `SECURE_STORE_CUSTODIAN` | `secrets/store.py` | RFC-0009 §4 (SC8) |
+| `SecretRecord`, `Provision`, `Consumption`, `Destruction` | `secrets/store.py` | RFC-0009 §15, §5.1, §8.4, §12.5 |
+| `SecureStore` | `secrets/store.py` | RFC-0009 §4–§12 (SC1, SC6, SC7, SC8, SC12, SC15); DN-41 |
+
+Each type is defined in exactly one module; no type is re-defined or shared
+across modules (RFC-0004 §3 one-owner rule; design review §2.6).
+
+### Public surface map
+
+| Module | Public surface (`__all__`) |
+|---|---|
+| `secrets/classify.py` | `NonSecretDesignation`, `SECRET_SHAPES`, `SecretClassification`, `SecretDatum`, `SecretMetadata`, `SecretOrigin`, `SecretShape`, `SecrecyClass`, `classify` |
+| `secrets/redact.py` | `REDACTION_MARKER`, `Redaction`, `RedactionStatus`, `redact` |
+| `secrets/store.py` | `Consumer`, `Consumption`, `Destruction`, `OPERATOR_OWNER`, `Provision`, `SECURE_STORE_CUSTODIAN`, `SecretRecord`, `SecureStore`, `StoreStatus` |
+
+The facade (`secrets/__init__.py`) re-exports nothing and leaks no internal
+placeholder (design review §4). The trust class is carried as a *value* from
+`trust` (Q6-in-Iteration-5 precedent), never re-declared (design review §2.6).
+
+### Layer-3 conformance summary
+
+Verified by `tests/test_secrets_conformance.py` (mirrors
+`test_trust_conformance.py`):
+
+- **Imports.** Only stdlib + `secrets` itself + the blueprint §4.1 set
+  `{schema, trust}`; the declared `secrets → schema` edge stays **latent** — no
+  module consumes it (DN-44); the `secrets → trust` edge is activated by
+  `redact.py` only (DN-42).
+- **No forbidden imports.** No higher-layer or authority-bearing package
+  (collectors, factlayer, verification, runtime/core, providers, executor,
+  policy, audit, context, skills, systemmodel, cli); no I/O-, concurrency-, or
+  persistence-capable stdlib (SC11 — nothing durable is ever written).
+- **No dependency-edge violations.** `test_dependency_rules.py` green;
+  declared and observed import graphs acyclic (`secrets → {schema, trust}` →
+  stdlib).
+- **No forbidden runtime logic.** No top-level control flow; module-level code
+  builds only constant data (the `SECRET_SHAPES` catalogue and its compiled
+  regexes, the markers); no I/O, persistence, or execution calls anywhere
+  (RFC-0009 §3 rule 5: the LLM never classifies).
+- **Frozen + slots.** Every public dataclass (`SecretShape`, `SecretDatum`,
+  `SecretMetadata`, `SecretClassification`, `Redaction`, `SecretRecord`,
+  `Provision`, `Consumption`, `Destruction`) is frozen and slot-based (DN-34).
+- **No ownership overlap / no placeholder leaks.** `__all__` equals the
+  ownership map per module; names unique across modules; no underscore-prefixed
+  name exported; facade re-exports nothing.
+- **Package tree unchanged.** `secrets/{__init__,classify,redact,store}.py`
+  matches blueprint §2 exactly (`test_packages.py`); `schema` and `trust` never
+  import `secrets`.
+- **Value-free surface (SC2–SC5 boundary).** No metadata record
+  (`SecretMetadata`, `SecretClassification`, `SecretRecord`, `Provision`,
+  `Destruction`) carries a `content`/`value` field; `Consumption` is the single
+  materialization point (SC1).
+
+### Secrets invariant coverage summary
+
+Verified by `tests/test_secrets_invariants.py` against the RFC-0009 §28
+SC1–SC16 oracle (design review §7). SC9/SC10/SC11 are held by layer-boundary
+tests now; their enforcement points are `policy`/`executor`/`audit` (DN-43):
+
+| Invariant | What is verified |
+|---|---|
+| SC1 | Segregation: a value exists only in the store's custody and materializes only at `consume`; no record or repr reveals it |
+| SC2 | Default secret-free: classification and every derived artifact carry no value; metadata has no value facet |
+| SC3 | No secret in a Provider View: SECRET/HOSTILE withhold (nothing crosses); secret-shaped spans are replaced, never revealed |
+| SC4 | No secret in the Audit: records are metadata-only through the full lifecycle; the value is absent from every repr |
+| SC5 | No secret reaches an extension: the consumer set is exactly the Provider adapter; anything else is refused |
+| SC6 | One-way crossing: `consume` is the only value-bearing operation; a refused consumption crosses nothing |
+| SC7 | Purpose-scoped: bound at provisioning; an unstated purpose is refused with a non-empty reason; the scope is never widened |
+| SC8 | Exactly one owner: `OPERATOR_OWNER` + `SECURE_STORE_CUSTODIAN` fixed per record; never parameters |
+| SC9 | No Action carries a secret (boundary): no Action/Plan/Proposal surface; enforcement at `policy`/`executor` |
+| SC10 | Elevation exposes nothing (boundary): the value appears nowhere outside `consume`; enforcement at `executor` |
+| SC11 | Retention by consent (boundary): no durable surface and no persistence stdlib; destroy leaves nothing in memory |
+| SC12 | Destruction timely and complete: value and record removed; unknown handles refused; metadata (never the value) recorded |
+| SC13 | Deterministic and testable: same input → same output for classify, redact, and the store lifecycle |
+| SC14 | Fails closed: unclassifiable and secret content are WITHHELD with a non-empty reason; every refusal is non-silent |
+| SC15 | Exposure is compromise: suspected exposure invalidates immediately; the invalidated secret is refused at every boundary |
+| SC16 | Privacy parity: marked content stays secret without an explicit `MARKED_PUBLIC` demotion; captured content is never adopted |
+
+Cross-layer invariants additionally enforced: the trust class is preserved on a
+crossing (S1, T9) and becomes Hostile only on a ratified fail-closed withhold;
+redaction never re-classifies; metadata never carries a value; and 50 repeated
+classify→redact→store runs are byte-identical (determinism).
+
+### Dependency and ownership verification
+
+- `tests/test_dependency_rules.py` green: `secrets` imports only within
+  `ALLOWED["secrets"] = {"schema", "trust"}` + stdlib + itself; no forbidden
+  edge; graphs acyclic.
+- `tests/test_packages.py` green: tree matches blueprint §2 exactly.
+- One owner per name: the secrecy vocabulary (§3/§7/§2), the redaction results
+  (§11/§13), and the store/ownership records (§4–§12, §15) are each defined in
+  exactly one module; the trust class is consumed as a value, never re-declared.
+- **No authority.** `secrets` holds no RFC-0004 §7 authority cell (custody is
+  not ownership, RFC-0009 §4); it is the *source* of the no-secrets boundary,
+  never a consumer of the components that enforce it (design review §2.4).
+- **SC2–SC5 boundary satisfaction (DN-43).** The package's own surface is
+  value-free and offers no path to a value-bearing artifact outside
+  `store.consume`; the cross-component enforcement is recorded against its
+  owning package below.
+
+### Remaining deferred items
+
+Recorded only; nothing is invented. Each belongs to a later iteration:
+
+| Deferred item | Owning future iteration / RFC |
+|---|---|
+| Cross-component SC2/SC3 enforcement (Context secret-free; Provider View) | RFC-0012 §32 `context`; RFC-0010 §11 `providers` (DN-43) |
+| Cross-component SC4 (Audit metadata-only records; retention limits) | RFC-0013 §31 `audit` (DN-43) |
+| Cross-component SC5 (Skill no-secrets boundary) | RFC-0011 §15 `skills` (DN-43) |
+| The "no Action carries a secret" gate (SC9) and elevation (SC10) | RFC-0008 §3 `policy`/`executor` |
+| The real OS-secret-store mechanics (which store, interface, encryption) | RFC-0020 (RFC-0009 §30 OQ1; DN-41) |
+| The exhaustive redaction rule catalogue (exact patterns, collection exclusion) | RFC-0020, RFC-0012 (RFC-0009 §30 OQ2; DN-42) |
+| A `schema`-bound classifier adapter, if ever needed | RFC-0020 (DN-44) |
+| Credential provisioning UX (how the Operator enters/re-views keys) | RFC-0015/RFC-0016 (RFC-0009 §7, §23) |
+| Telemetry architecture; personal-data detection heuristics | post-MVP (RFC-0000 §5) |
+| RFC-0009 Draft rework risk (and its deferred parts in RFC-0007/0011/0012) | RFC acceptance / amendment (blueprint §9 #2) |
+
+### Completion verdict
+
+- Iteration 6 implementation is **complete**.
+- **Layer-3 Definition of Done is satisfied** (blueprint §8.6 re-ordered by
+  DN-35/DN-40; design review §7 C4): SC2–SC5 (layer-boundary), SC14, and SC15
+  pass, each with a test; every layer-enforceable SC1–SC16 has a test.
+- **C0–C5 are complete.** The `secrets` layer is complete per the blueprint and
+  the design review.
+- Full suite: 1333 tests pass; ruff, format, build, and pre-commit are clean.
+
+### Readiness for Iteration 7
+
+Iteration 7 is the **`policy` package** (RFC-0008; blueprint §8.7, re-ordered
+by DN-40 so it follows `secrets`), with `executor` + `audit` (RFC-0002/RFC-0004,
+RFC-0013) following. It is **unblocked**: the secrets layer is complete, the
+suite is green (1333 tests), and the deferred SC2–SC5 cross-component
+enforcement lands at its owning packages (`audit`, `context`, `providers`,
+`skills`) as recorded above (DN-43). Iteration 7 begins with its own design
+review and ratification before implementing the `policy` package.
 
 ---
 
