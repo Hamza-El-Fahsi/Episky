@@ -2,7 +2,7 @@
 design review §3, §4, §5, §8; DN-1, DN-62, DN-63).
 
 Mirrors test_policy_conformance.py / test_secrets_conformance.py for the
-audit layer (Iteration 8 Commit C1): every audit module imports only the
+audit layer (Iteration 8 Commits C1–C2): every audit module imports only the
 standard library, the `secrets` *metadata* types (blueprint §4.2 qualifier;
 SC4), and its own package — never the forbidden authority-bearing or
 orchestration packages (RFC-0004 §4.12; AU1), and never the declared-but-
@@ -131,9 +131,9 @@ FORBIDDEN_TOPLEVEL = (
 # calls at all.
 ALLOWED_TOPLEVEL_CALLS = frozenset()
 
-# Design review §4 / blueprint §10 ownership, transcribed: each C1 module's
-# public surface is exactly the names its owning RFC assigns. transcript.py
-# is a C2 stub and exposes no surface yet.
+# Design review §4 / blueprint §10 ownership, transcribed: each module's
+# public surface is exactly the names its owning RFC assigns. records and
+# store are C1; transcript is C2 (render + the §8 category vocabulary).
 PUBLIC_SURFACE = {
     "records": {
         "ApprovalDecision",
@@ -147,6 +147,7 @@ PUBLIC_SURFACE = {
         "SecretMetadataRecord",
     },
     "store": {"AuditStore", "StoreStatus"},
+    "transcript": {"TranscriptCategory", "TranscriptEntry", "render"},
 }
 
 # Module-level names each module legitimately assigns beyond `__all__`: none.
