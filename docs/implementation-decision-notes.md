@@ -1828,3 +1828,309 @@ tests), the Layer-4 conformance and invariant suites
 enforce the ratified readings, and the next iteration is the `context` layer
 (RFC-0012) that owns the runtime `core`-side wiring recorded as deferred in the
 consistency report. No new decision note is required for this closeout.
+
+# Iteration 9 decision notes (Context & Memory layer)
+
+The notes below record the Iteration 9 ratification (Operator, 2026-08-07) of
+the ten questions posed by `docs/iteration-9-design-review.md` §10 (Q1–Q10).
+They fix the reading of the reported ambiguities so that a reported ambiguity
+cannot reappear in a later iteration, and they **unblock Iteration 9
+implementation** (design review §16–§17 readiness). All ten questions are
+recorded as decision notes DN-65…DN-74: each fixes an iteration-scope or
+layer-mechanics reading that the frozen corpus leaves open. RFC-0012 is
+architecture-only ("no schemas, no APIs"; RFC-0005 §3; RFC-0012 §0), so each
+question resolves an *implementation interpretation*, never an architectural
+expansion; the corpus supplies the grounding. No question requires an RFC
+amendment, a `schema`/`systemmodel`/`trust`/`factlayer`/`verification`/
+`secrets`/`policy`/`executor`/`audit` change, a new module (the four `context`
+modules are already scaffolded per blueprint §2), or a new dependency edge
+beyond the declared `context → {schema, factlayer, trust, secrets, systemmodel}`
+set with `secrets` restricted to classifier types (blueprint §4.1/§4.2). The
+grounding RFCs cited below are Accepted where marked; RFC-0012, RFC-0013, and
+RFC-0021 are Draft, whose rework risk is accepted per blueprint §9 #2 (the DN
+posture of Iterations 1–8).
+
+## DN-65 — Iteration 9 scope is the `context` layer; the blueprint §8.9 numbering is superseded by DN-45's re-order
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 9 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q1 |
+| Grounding | DN-45 (re-order: `policy` = Iteration 7, `executor` + `audit` = Iteration 8, `context` = Iteration 9, `providers` + `skills` = Iteration 10, `core` = Iteration 11); blueprint §8.9 (the `context` iteration, original numbering "Iteration 8"); Iteration 8 closeout (`docs/iteration-8-design-review.md` §16: "The next iteration is the `context` layer (RFC-0012)") |
+| Embodied in | Iteration 9 implementation plan (docs-ratification commit C0) |
+
+**Decision.** Iteration 9 executes as the **Context & Memory Layer (`context`
+only)** (RFC-0012; blueprint §8.9, re-ordered by DN-45 to follow `executor` +
+`audit`). The blueprint §8.9 numbering is **superseded by DN-45's re-order**:
+`context` is Iteration 9, not the §8.9 label's "Iteration 8". The blueprint text
+itself is **left unchanged** — the renumbering is recorded here and in the
+consistency report as a reported tension, and the blueprint stands until
+RFC-0020 (the authoritative build order). The re-order is dependency-safe:
+`context` (Layer 4) precedes `providers` (Layer 5, imports `context`), `core`
+(Layer 6, imports `context`), and `cli` (Layer 7, imports `context`), preserving
+the safety spine and blueprint Risk #9's mitigation (secrets, Layer 2, precedes
+context and providers). No architecture is added; the §8.9 DoD
+(CM1–CM16; PR14; SC2; CM13) is the conformance oracle.
+
+**Effect.** The Iteration 9 plan in `docs/iteration-9-design-review.md` §12–§14
+is ratified; the blueprint §8.9 label stays recorded as a reported tension until
+RFC-0020.
+
+## DN-66 — The assembly function consumes explicit boundary inputs; the runtime wiring is `core`'s
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 9 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q2 (and the A11 Goal-shape part) |
+| Grounding | RFC-0012 §8 (what enters Context; "only through the Context Manager"), §12 (deterministic, ordered composition); RFC-0002 §2.4 (Context Building is "the *only* place LLM input is assembled" and is a runtime state); RFC-0003 §2.3 (the Goal is a Session concept, one active Goal; the Goal is the Core's per `schema/action.py`); RFC-0004 §4.11 (Context Manager trusts Fact Layer and Operator consent; does not trust raw Observations/Provider output/Skill material); Iteration 8 DN-55/DN-56 (injected boundary + structural-handoff precedent); DN-44 (latent edge precedent); blueprint §4.2 (forbidden `context → providers`/`skills` edges) |
+| Embodied in | Iteration 9 implementation plan, Commit C1 |
+
+**Decision.** `assemble.py` consumes **explicit boundary inputs**: a plain
+schema-shaped Goal value (statement + scope; a canonical Goal schema is
+RFC-0020's, DN-1), the Fact current set read from `factlayer` (filtered to
+relevance + freshness at its trust class, RFC-0012 §8/§12), a bounded,
+already-labeled history turn record, sanitized skill material, and the
+routing-state marker. The package performs **no I/O and no provider call** and
+holds no live session state; assembly is a pure, deterministic function, testable
+now against supplied material (RFC-0007 S7). The producers of history, skill
+material, the Goal, and routing state are `core`/`providers`/`skills`
+(Iterations 10–11) and remain recorded at design review §1.2; the Context
+Building *state wiring* (entry/exit conditions, the → Diagnosis/Planning exits)
+is `core`'s. No architecture is added; the composition order of RFC-0012 §12 is
+the normative rule.
+
+**Effect.** The assembly input contract is fixed and testable at Layer 4 without
+`core`; the `context → providers`/`skills` edges stay forbidden and the Layer-4
+conformance suite enforces it.
+
+## DN-67 — The sanitization enforcement point is built now (mechanism), with the per-source catalogue deferred to RFC-0020
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 9 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q3 |
+| Grounding | RFC-0012 §5 authority 2 ("Filter and sanitize — apply purpose-limits, size bounds, and sanitization (RFC-0007 S1–S8) before material enters Context or a View"), §32 ("The rule is RFC-0009's; the mechanics are this RFC's"), §37 OQ3 (the sanitization catalogue at the enforcement point is RFC-0020's); RFC-0004 §4.11 (the Context Manager "is the enforcement point and may never decide to include a secret"); RFC-0009 SC2/SC16; RFC-0007 S1–S8; DN-18 (placeholder-default precedent); DN-43 (SC2–SC5 are satisfied as layer-boundary tests now; cross-component enforcement is the owning packages' DoD) |
+| Embodied in | Iteration 9 implementation plan, Commit C2 |
+
+**Decision.** `boundaries.py` implements the **enforcement point mechanism now**:
+it applies `trust`'s RFC-0007 S1–S8 (neutralize, contain, bound, label) and the
+`secrets` classifier (fail-closed on secret-shaped values, SC2) before any
+material enters Context or a View, with a placeholder-default policy (DN-18).
+Personal data is treated as secret until an explicit Operator demotion (SC16).
+The **concrete per-source catalogue** (which treatment for which source, per
+RFC-0012 §37 OQ3) is RFC-0020's; the mechanism is this layer's. No architecture
+is added; the rule stays RFC-0009's, the mechanics are RFC-0012 §32's, and the
+enforcement point is RFC-0004 §4.11's.
+
+**Effect.** SC2/CM4/T10 are testable at their enforcement point now (DN-43's
+assignment); the catalogue values stay with RFC-0020.
+
+## DN-68 — `provider_view.py` derives the View now; the presentation form is RFC-0015's and final signatures are RFC-0020's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 9 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q4 |
+| Grounding | RFC-0010 §3 (the Provider View's elements; "This RFC does not define its shape — no schemas — but defines its boundary"), §11 (the Context Boundary; assembled, not forwarded; minimal by default), §15 OQ3 (assembly mechanics are RFC-0012's and RFC-0015's); RFC-0012 §13 (Context → Provider View boundary), §27 (the View is the only channel, PR14); RFC-0007 §12 (built, labeled, size-bounded, purpose-limited, disposable); RFC-0002 §2.4 (the View is built at the Context Building exit); DN-1 (signatures are RFC-0020's); Iteration 8 DN-64 (derivation-now precedent) |
+| Embodied in | Iteration 9 implementation plan, Commit C4 |
+
+**Decision.** `provider_view.py` implements the **deterministic View derivation
+now**: `build_view` derives a schema-shaped, secret-free View from the assembled
+Context carrying exactly the RFC-0010 §3 elements (Operator Goal, the selected
+evidence/Allowed Context, Conversation State including the routing-state marker
+per RFC-0012 §33, and the Capability Declaration echoed back) and nothing else
+(no Audit, no secrets, no raw output, no provider identity), so PR14/SC3/CM10
+are testable here. The **presentation form** (how the View is rendered to the
+Operator or consumed by the provider) is RFC-0015's (RFC-0010 §15 OQ3) and the
+**final signatures** are RFC-0020's (DN-1). No architecture is added; the View's
+boundary is RFC-0010 §3/§11's, and the shape is reported, not invented.
+
+**Effect.** PR14/SC3/CM10 and RFC-0002 invariant 4 are testable at this layer
+now; the form stays with RFC-0015.
+
+## DN-69 — `memory.py` is an in-memory consented store now; durable backing is RFC-0014/RFC-0020's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 9 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q5 |
+| Grounding | RFC-0012 §7 (Memory Categories: exactly three), §22 (Persistence Philosophy; "Durable only by explicit, reversible consent"; "Retention is by consent, not by default"), §37 OQ4/OQ5 (what survives a resume and multi-goal separation are RFC-0014's); RFC-0001 §9.5 (retention by consent); RFC-0004 §4.11 (Persist under consent); DN-19/DN-27/DN-34/DN-50/DN-62 (in-memory-now, durable-later precedent); RFC-0020 (storage mechanics) |
+| Embodied in | Iteration 9 implementation plan, Commit C3 |
+
+**Decision.** `memory.py` builds the **in-memory consented store now**: the
+promotion gate (Context material moves to Memory only with an explicit consent
+carrying a stated purpose, CM11), exactly the three §7 categories (Preference
+Memory, Machine Memory, Durable Context; never secret values, raw output, the
+Audit record, or private content without demotion, SC16), list/export/wipe
+(CM14), complete and irreversible wipe with no restore path (CM12/CM13), and no
+decision surface (CM2). The **durable backing** (storage mechanics, retention,
+deletion, export, and what survives a resume) is RFC-0014/RFC-0020's, exactly as
+DN-62 deferred the audit store's durable backing. No architecture is added; the
+consent gate is RFC-0012 §22's, and the in-memory posture is the established
+scaffold precedent.
+
+**Effect.** CM11/CM13/CM14 are testable now; the durable half stays recorded
+against RFC-0014/RFC-0020.
+
+## DN-70 — The context package emits context-boundary events; `core` writes them as RFC-0013 category-9 records
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 9 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q6 |
+| Grounding | RFC-0013 §7 cat. 9 (Context-boundary records — "material entered Context or Memory, never the material itself"), §23 ("The write points are runtime boundaries"); RFC-0004 §9.11 (the Context Manager "the Audit records what entered Context"); RFC-0002 I-13 (recorded before the consequence); blueprint §4.2 (forbidden `context → audit` edge; CM15); RFC-0012 §31 (Audit records that material entered Context, never the material) |
+| Embodied in | Iteration 9 implementation plan, Commits C1/C3 (event emission) |
+
+**Decision.** The `context` package emits **deterministic context-boundary
+events** — category, size, identity, entered/destroyed, and never the material
+itself (SC4-compatible, value-free) — as outputs of assembly, promotion, and
+destruction. **`core` writes them** as RFC-0013 §7 cat. 9 records at the runtime
+boundary, before the material's use (RFC-0013 §23; RFC-0002 I-13). The package
+never imports `audit` (blueprint §4.2; CM15) and never holds records itself. No
+architecture is added; the record format is RFC-0013's, the write point is the
+runtime's, and the event generation is this layer's, mirroring how Iteration 8
+recorded the cat-9 write point at its owning runtime boundary.
+
+**Effect.** CM15 and RFC-0002 I-13 both hold; the cat-9 record is testable as an
+event-before-use boundary test now and written by `core` at Iteration 11.
+
+## DN-71 — Routing-state is a Context category now; routing decisions are `core`'s and persistence is RFC-0014's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 9 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q7 |
+| Grounding | RFC-0012 §6 cat. 6 (Routing state: "the minimal state to route the next input: the outstanding-question marker and the current decision pointer"), §33 (the answer to RFC-0002 Q12: a new question supersedes the marker; the superseded question is disclosed, never silently dropped); RFC-0002 §2.5/§2.6 (routing decisions in Diagnosis/Planning), §10 Q12; RFC-0012 §37 OQ4 (routing-state persistence across interrupts is RFC-0014's) |
+| Embodied in | Iteration 9 implementation plan, Commit C1 |
+
+**Decision.** `assemble.py` carries the **routing-state marker** as a Context
+category and implements the RFC-0012 §33 **supersede-disclose semantics**
+deterministically (a new Operator question supersedes the outstanding-question
+marker; the superseded question is disclosed, never silently dropped), so the
+RFC-0002 Q12 answer is testable at the category now. The **routing decisions**
+(which state to enter) are `core`'s (RFC-0002 §2.5/§2.6, Iteration 11), and
+**cross-interrupt persistence** of the marker is RFC-0014's (§37 OQ4). No
+architecture is added; routing state is exactly RFC-0012 §6 category 6's.
+
+**Effect.** The §33 Q12 answer is testable here; the runtime routing and the
+persistence half stay recorded against `core`/RFC-0014.
+
+## DN-72 — Assembly enforces freshness gates and a mark-stale function now; the event emission and re-inspection are `core`'s
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 9 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q8 |
+| Grounding | RFC-0012 §16 (Context inherits Fact freshness; "Stale Context is rebuilt, never patched"), §17 (invalidation is deterministic and precedes use; state change, freshness lapse, interruption, contradiction), §35 CM7/CM8; RFC-0005 §12 (freshness states; stale truth is not truth); RFC-0002 §4.2 (STATE_CHANGED_DETECTED marks the set stale and forces re-inspection) |
+| Embodied in | Iteration 9 implementation plan, Commit C1 |
+
+**Decision.** Assembly enforces the **deterministic freshness gates now**:
+Stale/Expired/Unknown-freshness Facts are excluded or mark the working set
+Stale (CM7), and a **mark-stale function** consumes the state-change/freshness
+event as an explicit input and records the invalidation before any use (CM8).
+The **event emission** (STATE_CHANGED_DETECTED) and the **re-inspection
+trigger** are `core`'s (RFC-0002 §4.2, Iteration 11), exactly as Iteration 8
+recorded the I-8 re-assessment trigger against `core`. No architecture is added;
+freshness belongs to RFC-0005 §12 and the invalidation rule to RFC-0012 §17.
+
+**Effect.** CM7/CM8 are testable at the layer's surface now; the runtime event
+and re-inspection stay with `core`.
+
+## DN-73 — All six Context categories are implemented as explicit types now; producers arrive with their owning iterations
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 9 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q9 |
+| Grounding | RFC-0012 §6 (Context has "exactly six categories of material for reasoning"), §8 (what enters), §34 rule 2 ("New Context categories are additive amendments"); RFC-0006 §14 (Evidence is a forward reference); Iteration 8 DN-63 (categories-in-scope precedent: implement the category types now, writers arrive with their write points) |
+| Embodied in | Iteration 9 implementation plan, Commit C1 |
+
+**Decision.** All six §6 categories — **Goal, Facts, History, Evidence, Skill
+material, and Routing state** — are implemented as explicit types now, fixing
+the §6 closure before the producers land. Categories whose live producers do not
+exist yet (History from `core`/`providers`, Skill material from `skills`,
+Routing state from `core`) are tested at the boundary with supplied material
+(DN-66). Adding a category later is an amendment (RFC-0012 §34 rule 2; RFC-0003
+Part II), so the closure is fixed in this iteration. No architecture is added;
+the six categories are RFC-0012 §6's exactly.
+
+**Effect.** The §6 category set is closed and testable; later iterations fill
+producers without amending the category set.
+
+## DN-74 — Evidence enters Context as labeled material built on `schema.VerificationOutcome`, never as verification power
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 9 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q10 |
+| Grounding | RFC-0012 §6 cat. 4 (Evidence: "verification Outcomes and their evidence… enter as Facts or labeled evidence, never as verification power"), §26 (Outcomes and evidence are Context material; Verification never reads Context); RFC-0006 §14 (Evidence as Context material is a forward reference; Verification consumes Facts, never Context, RFC-0006 §3); RFC-0005 §3 (canonical Fact/Outcome vocabulary); schema.VerificationOutcome (Iteration 4) |
+| Embodied in | Iteration 9 implementation plan, Commit C1 |
+
+**Decision.** Evidence enters Context as **labeled material built on the
+`schema.VerificationOutcome` type** (its canonical form), never as verification
+power, never as a decision input, and never through Context as a Fact — Facts
+remain the only source of truth (CM1). The RFC-0006 §14 forward reference's
+*write boundary* (how verification produces that material) stays `verification`'s
+(Iteration 4) and is recorded as such. No architecture is added; the category is
+RFC-0012 §6 category 4's, and the schema type is Iteration 4's.
+
+**Effect.** The Evidence category is closed and labeled now; RFC-0006's author
+resolves the §14 forward reference against this reading.
+
+### Q1–Q10 question status
+
+| §10 Q | Subject | Status | Where resolved |
+|---|---|---|---|
+| Q1 | Iteration scope / renumbering vs blueprint §8.9 | **Ratified** | DN-65 (this file) |
+| Q2 | Context assembly input contract | **Ratified** | DN-66 (this file) |
+| Q3 | Sanitization enforcement point | **Ratified** | DN-67 (this file) |
+| Q4 | Provider View representation | **Ratified** | DN-68 (this file) |
+| Q5 | In-memory Memory abstraction | **Ratified** | DN-69 (this file) |
+| Q6 | Context-boundary audit write | **Ratified** | DN-70 (this file) |
+| Q7 | Routing state ownership | **Ratified** | DN-71 (this file) |
+| Q8 | Freshness event model | **Ratified** | DN-72 (this file) |
+| Q9 | Six context categories as explicit types | **Ratified** | DN-73 (this file) |
+| Q10 | Evidence basis | **Ratified** | DN-74 (this file) |
+
+All ten §10 questions are resolved as decision notes; none requires an RFC
+amendment, a `schema`/`systemmodel`/`trust`/`factlayer`/`verification`/`secrets`/
+`policy`/`executor`/`audit` change, a new module (the four `context` modules are
+already scaffolded per blueprint §2), or a new dependency edge beyond the
+declared `context → {schema, factlayer, trust, secrets, systemmodel}` set with
+`secrets` restricted to classifier types (blueprint §4.1/§4.2). **Iteration 9
+implementation is unblocked** (design review §16 readiness). The planned commits
+(design review §12) will be recorded in `docs/implementation-consistency-report.md`
+(Iteration 9 section) as they land.
+
+### DN-65 … DN-74 completion status
+
+| Note | Decision | Status | Embodied in | Validated by |
+|---|---|---|---|---|
+| DN-65 | `context` executes at Iteration 9 per DN-45's re-order; blueprint §8.9 label superseded and stands until RFC-0020 | **Ratified** | C0 (docs-ratification) | design review §10 Q1 |
+| DN-66 | `assemble()` consumes explicit boundary inputs (Goal value, Fact set, labeled history, sanitized skill material, routing-state marker); no I/O; `core` wires the runtime | **Ratified** | C1 (planned, `assemble.py`) | pending C1 |
+| DN-67 | `boundaries.py` builds the enforcement point mechanism now (S1–S8 + secrets classifier, fail-closed SC2/SC16); per-source catalogue is RFC-0020's | **Ratified** | C2 (planned, `boundaries.py`) | pending C2 |
+| DN-68 | `provider_view.py` derives the View now (RFC-0010 §3 elements, secret-free); form is RFC-0015's, signatures RFC-0020's | **Ratified** | C4 (planned, `provider_view.py`) | pending C4 |
+| DN-69 | `memory.py` is an in-memory consented store now (promotion gate, three §7 categories, list/export/wipe, no-restore); durable backing RFC-0014/RFC-0020's | **Ratified** | C3 (planned, `memory.py`) | pending C3 |
+| DN-70 | `context` emits deterministic context-boundary events; `core` writes them as RFC-0013 §7 cat. 9 records before use (I-13) | **Ratified** | C1/C3 (planned, event emission) | pending C1/C3 |
+| DN-71 | `assemble.py` carries the routing-state marker + §33 supersede-disclose semantics; routing decisions `core`'s, persistence RFC-0014's | **Ratified** | C1 (planned, `assemble.py`) | pending C1 |
+| DN-72 | Assembly enforces freshness gates + mark-stale function now; event emission and re-inspection are `core`'s | **Ratified** | C1 (planned, `assemble.py`) | pending C1 |
+| DN-73 | All six §6 categories are explicit types now; producers arrive with their owning iterations | **Ratified** | C1 (planned, `assemble.py`) | pending C1 |
+| DN-74 | Evidence enters as labeled material on `schema.VerificationOutcome`, never verification power; §14 write boundary stays `verification`'s | **Ratified** | C1 (planned, `assemble.py`) | pending C1 |
+
+**Iteration 9 ratification note.** All ten Context & Memory layer decisions
+(DN-65…DN-74) are ratified before C0, the docs-ratification commit; none is yet
+implemented (C1–C6 remain, per design review §12). The four `context` modules
+are scaffolded stubs (blueprint §2) and the `context` dependency row is already
+declared in `tests/test_dependency_rules.py`, so the tree test stays green
+throughout. The next iteration after `context` is `providers` + `skills`
+(blueprint §8.10, re-ordered by DN-45 to Iteration 10).

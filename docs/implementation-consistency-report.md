@@ -1616,14 +1616,101 @@ Recorded only; nothing is invented. Each belongs to a later iteration:
 - Full suite: 1965 tests pass; ruff, format, build, and pre-commit are clean.
   Working tree is clean after C5.
 
-### Readiness for Iteration 9
+## Iteration 9 — the context layer (planned)
 
 Iteration 9 is the **`context`** layer (RFC-0012; RFC-0010 §3 Provider View).
-It owns the runtime `core`-side wiring this iteration recorded as deferred:
-the §6.2 consultation edges, the Executing exits, session initialization, and
-the durable audit/elevation plumbing stay recorded against their owners above.
-Iteration 9 begins with its own design review and ratification before
-implementation.
+Its design review (`docs/iteration-9-design-review.md`) is **ratified** (C0)
+and its ten reported ambiguities are fixed as decision notes DN-65…DN-74 in
+`docs/implementation-decision-notes.md`. The four `context` modules are
+scaffolded stubs (blueprint §2) and the `context` dependency row is already
+declared in `tests/test_dependency_rules.py`, so the tree tests stay green
+throughout the iteration. `context` runs at Layer 4 per DN-45's re-order
+(blueprint §8.9's "Iteration 8" label is superseded by DN-65 and stands until
+RFC-0020).
+
+### Commit map
+
+| Commit | Scope | Module | Est. impl LOC | Est. test LOC |
+|---|---|---|---|---|
+| C0 | Ratify design review (docs only) | — | ~800 docs | — |
+| C1 | Deterministic bounded assembly: six §6 category types, freshness gates + mark-stale, routing-state marker + §33 supersede-disclose, context-boundary event emission | `assemble.py` | ~280 | ~380 |
+| C2 | Sanitization enforcement point: S1–S8 + secrets classifier, fail-closed, placeholder-default policy | `boundaries.py` | ~120 | ~180 |
+| C3 | In-memory consented Memory store: promotion gate, three §7 categories, list/export/wipe, no-restore | `memory.py` | ~180 | ~420 |
+| C4 | Deterministic Provider View derivation (RFC-0010 §3 elements, secret-free) | `provider_view.py` | ~120 | ~380 |
+| C5 | Layer-level conformance + invariant suites, dependency and package gates, LOC check | `tests/` | — | ~140 |
+| C6 | Full gate run + iteration closeout (consistency report update) | — | — | — |
+
+### Question resolution (design review §10 → DN)
+
+| Q | Subject | Resolution |
+|---|---|---|
+| Q1 | Iteration scope / renumbering | `context` = Iteration 9 per DN-45; blueprint §8.9 label superseded (**DN-65**) |
+| Q2 | Assembly input contract | `assemble()` consumes explicit boundary inputs; no I/O; `core` wires the runtime (**DN-66**) |
+| Q3 | Sanitization enforcement point | Mechanism now (S1–S8 + secrets classifier, fail-closed); per-source catalogue RFC-0020's (**DN-67**) |
+| Q4 | Provider View representation | Deterministic View derivation now; form RFC-0015's, signatures RFC-0020's (**DN-68**) |
+| Q5 | In-memory Memory abstraction | In-memory consented store now; durable backing RFC-0014/RFC-0020's (**DN-69**) |
+| Q6 | Context-boundary audit write | `context` emits events; `core` writes RFC-0013 §7 cat. 9 records (**DN-70**) |
+| Q7 | Routing state ownership | Marker + §33 supersede-disclose now; decisions `core`'s, persistence RFC-0014's (**DN-71**) |
+| Q8 | Freshness event model | Freshness gates + mark-stale now; event emission and re-inspection `core`'s (**DN-72**) |
+| Q9 | Six context categories | All six §6 categories as explicit types now (**DN-73**) |
+| Q10 | Evidence basis | Labeled material on `schema.VerificationOutcome`; §14 write boundary `verification`'s (**DN-74**) |
+
+### Planned module ownership
+
+| Module | RFC-0012 ground | Public surface (planned) | Owned / verified here |
+|---|---|---|---|
+| `assemble.py` | §12 composition, §6 categories, §16/§17 freshness, §33 routing, §31 events | `assemble` (boundary inputs → Context), category types, `mark_stale`, routing marker + supersede/disclose | CM1, CM6, CM7/CM8, Q12-answer (DN-66/DN-71/DN-72/DN-73) |
+| `boundaries.py` | §5 authority 2, §32 mechanics, §37 OQ3 | `sanitize_for_context`, `sanitize_for_view`, `validate` (S1–S8, secrets classifier, fail-closed, placeholder-default) | SC2, CM4, T10 (DN-67) |
+| `memory.py` | §7 categories, §22 consent | `promote`, `list`, `export`, `wipe` (in-memory, consented, no-restore) | CM11, CM13, CM14 (DN-69) |
+| `provider_view.py` | §13 boundary, §27 PR14 | `build_view` (RFC-0010 §3 elements, secret-free) | PR14, SC3, CM10 (DN-68) |
+
+### Public surface and event contract
+
+`context` exposes the boundary-input assembly function and category types
+(`assemble.py`), the sanitization and validation enforcement point
+(`boundaries.py`), the Memory store (`memory.py`), and the View derivation
+(`provider_view.py`). It emits deterministic, value-free context-boundary
+events (category, size, identity, entered/destroyed) that `core` writes as
+RFC-0013 §7 cat. 9 records before the material's use (RFC-0002 I-13); the
+package never imports `audit` (CM15).
+
+### Dependency verification
+
+- Allowed (blueprint §4.1/§4.2): `context → {schema, factlayer, trust, secrets, systemmodel}`.
+- `context → secrets` restricted to **classifier types only** (no values), per
+  RFC-0004 §4.11 and blueprint §4.2; `context → systemmodel` is a latent edge
+  (DN-44) exercised once a system model exists.
+- Forbidden: `context → {providers, policy, executor, audit}`; `providers` may
+  import `context` (Iteration 10); `cli → context` (Iteration 12).
+- Enforced by `tests/test_dependency_rules.py` (already declared) and the
+  Layer-4 conformance suites planned at C5.
+
+### Deferred ownership (recorded against owners)
+
+| Deferred item | Owner | Recording |
+|---|---|---|
+| Goal schema shape and final Context/View signatures | RFC-0020 | DN-66/DN-68 (DN-1) |
+| Per-source sanitization catalogue (RFC-0012 §37 OQ3) | RFC-0020 | DN-67 |
+| Memory durable backing (storage, retention, export, resume) | RFC-0014/RFC-0020 | DN-69 (DN-62 precedent) |
+| Routing-state persistence across interrupts | RFC-0014 | DN-71 |
+| Freshness-event emission and re-inspection trigger | `core` (Iteration 11) | DN-72 (RFC-0002 §4.2) |
+| History producer, Skill-material producer, live Goal source | `core`/`providers`/`skills` (Iterations 10–11) | DN-66/DN-73 |
+| RFC-0012/RFC-0013 Draft rework risk | RFC acceptance / amendment (blueprint §9 #2) | DN-65…DN-74 preamble |
+
+### Readiness for Commit C1
+
+- **Ready once C0 lands.** Q1–Q10 are ratified as DN-65…DN-74; the design
+  review is self-consistent (§16) and the Layer-4 Definition of Done
+  (CM1–CM16; PR14; SC2; CM13) is the conformance oracle.
+- C1 = `feat(context): deterministic bounded assembly` (~280 impl / ~380 test
+  LOC): the six §6 category types, the freshness gates and `mark_stale`, the
+  routing-state marker with §33 supersede-disclose, and the context-boundary
+  event emission. No I/O, no provider call, no `audit` import.
+- C1 carries no DoD risk: every C1 surface is an input-output contract
+  testable against supplied material (DN-66), and the dependency row is already
+  green in the tree tests.
+
+---
 
 ---
 
