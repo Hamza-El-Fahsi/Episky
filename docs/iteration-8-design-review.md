@@ -683,6 +683,20 @@ satisfying its §14 DoD before the next begins. C1–C6 (the `audit` package:
 `guards.py`, `elevation.py`; the conformance suite; and the closeout) remain to
 be implemented per §12/§14.
 
+**Post-implementation status (Iteration 8 closeout).** C1–C5 implemented and
+tested the layer, and this closeout records its completion. The `audit` package
+(`records.py`, `store.py`, `transcript.py`) landed in C1–C2; the `executor`
+package (`runner.py`, `guards.py`, `elevation.py`) landed in C3–C4; the
+conformance suite (`test_audit_conformance.py` plus the AST-conformance
+sections of the executor test modules) and the closeout (C5) complete the
+iteration. **Status: Complete.** The layer is deterministic, pure, and
+authority-free as designed — Execute in `executor`, Persist/Explain in `audit`
+— with the §1.2 deferred halves (the §6.2 consultation edges, the Executing
+exits, session initialization, the elevation mechanism, durable audit backing,
+guardrail bound values, and the Transcript presentation form) recorded against
+`core`/RFC-0021/RFC-0020/RFC-0015 in the consistency report. The full suite is
+green (1965 tests). The next iteration is the `context` layer (RFC-0012).
+
 ---
 
 ## 17. Final verdict

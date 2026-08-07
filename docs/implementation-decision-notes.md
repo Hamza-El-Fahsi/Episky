@@ -1804,3 +1804,27 @@ scaffolded per blueprint §2), or a new dependency edge beyond the declared
 (blueprint §4.1). **Iteration 8 implementation is unblocked** (design review
 §16 readiness). The planned commits (design review §12) will be recorded in
 `docs/implementation-consistency-report.md` (Iteration 8 section) as they land.
+
+### DN-55 … DN-64 completion status
+
+| Note | Decision | Status | Embodied in | Validated by |
+|---|---|---|---|---|
+| DN-55 | Injected run primitive; `executor` performs no I/O/subprocess | **Implemented** | C3 (`runner.py` `RunPrimitive`) | `test_executor_runner.py`; AST conformance |
+| DN-56 | Token as structural handoff; local re-validation, no `policy` import | **Implemented** | C3 (`runner.py` `TokenHandoff`, `validate_handoff`) | `test_executor_runner.py`; AST conformance |
+| DN-57 | Local re-validation + consumed machine-state/precondition verdict | **Implemented** | C3 (`BoundaryVerdict`) | `test_executor_runner.py` refusals |
+| DN-58 | argv-structured descriptor; no shell string (I-5) | **Implemented** | C3 (`runner.py` descriptor) | `test_executor_runner.py` I-5 tests |
+| DN-59 | Guardrail mechanism now (timeout placeholder bound; bounded/redacted capture) | **Implemented** | C4 (`guards.py`) | `test_executor_guards.py` |
+| DN-60 | Deterministic elevation lifecycle; machine mechanism injected | **Implemented** | C4 (`elevation.py`) | `test_executor_elevation.py` |
+| DN-61 | Runner writes execution records through `audit`; failed pre-write blocks run (AU8) | **Implemented** | C1/C3 (`store.py`, `runner.py`) | `test_audit_store.py`; `test_executor_runner.py` |
+| DN-62 | In-memory append-only store, hash-chain, §11 lifecycle, §22 reconciliation | **Implemented** | C1 (`store.py`) | `test_audit_store.py`; `test_audit_conformance.py` |
+| DN-63 | This layer's boundaries' categories | **Implemented** | C1 (`records.py`) | `test_audit_records.py`; `test_audit_conformance.py` |
+| DN-64 | Transcript derivation from the record only; form is RFC-0015's | **Implemented** | C2 (`transcript.py`) | `test_audit_transcript.py` |
+
+**Iteration 8 completion note.** All ratified Executor + Audit layer decisions
+(DN-55…DN-64) are implemented and validated: the full suite is green (1965
+tests), the Layer-4 conformance and invariant suites
+(`test_audit_conformance.py` plus the AST-conformance sections of
+`test_executor_runner.py`/`test_executor_guards.py`/`test_executor_elevation.py`)
+enforce the ratified readings, and the next iteration is the `context` layer
+(RFC-0012) that owns the runtime `core`-side wiring recorded as deferred in the
+consistency report. No new decision note is required for this closeout.
