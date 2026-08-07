@@ -1391,6 +1391,133 @@ ratification before implementation.
 
 ---
 
+## Iteration 8 — the `executor` + `audit` layer (ratified, Commit C0)
+
+**Status: Ratified — ready for C1.** The Iteration 8 design review
+(`docs/iteration-8-design-review.md`) reported ten blocking questions
+(Q1–Q10) against the frozen corpus; the Operator ratified all ten on
+2026-08-07 as **DN-55…DN-64** (`docs/implementation-decision-notes.md`), and
+this commit (C0) records the ratification. No production code, no tests, no
+RFC, and no package change is part of C0 — it is a docs-only ratification,
+mirroring every prior iteration's C0.
+
+### Commit mapping (C0)
+
+| Commit | Message | State |
+|---|---|---|
+| C0 | `docs: ratify Iteration 8 questions Q1–Q10 and executor+audit scope` | **Shipped** (this commit) |
+| C1 | `feat(audit): append-only record store and canonical categories` | Planned (design review §12) |
+| C2 | `feat(audit): transcript derivation from the record` | Planned |
+| C3 | `feat(executor): sanctioned runner under a valid token` | Planned |
+| C4 | `feat(executor): guardrails and scoped elevation` | Planned |
+| C5 | `test(executor, audit): Layer-4 conformance and AU/I/P/SC invariant suite` | Planned |
+| C6 | `docs: record Iteration 8 completion` | Planned |
+
+### Q1–Q10 resolution table
+
+| §10 Q | Subject | Status | Where resolved |
+|---|---|---|---|
+| Q1 | Run primitive: injected boundary vs real subprocess | **Ratified** | DN-55 |
+| Q2 | Token handoff / independent re-validation without `policy` | **Ratified** | DN-56 |
+| Q3 | State-consistency/precondition verdict at the boundary | **Ratified** | DN-57 |
+| Q4 | Execution command construction (I-5, no shell) | **Ratified** | DN-58 |
+| Q5 | Guardrail mechanism vs RFC-0020 values | **Ratified** | DN-59 |
+| Q6 | Elevation module: lifecycle now vs deferred | **Ratified** | DN-60 |
+| Q7 | Record-before-consequence at the runner | **Ratified** | DN-61 |
+| Q8 | Audit store durability | **Ratified** | DN-62 |
+| Q9 | Record categories in scope | **Ratified** | DN-63 |
+| Q10 | Transcript derivation scope | **Ratified** | DN-64 |
+
+### DN-55 … DN-64 implementation mapping
+
+| Note | Decision | Status | Embodied in | Validated by |
+|---|---|---|---|---|
+| DN-55 | Injected run primitive; `executor` performs no I/O/subprocess | **Ratified** | C3 (`runner.py`) | pending (C5) |
+| DN-56 | Token as structural handoff; local re-validation, no `policy` import | **Ratified** | C3 (`runner.py`) | pending (C5) |
+| DN-57 | Local re-validation + consumed machine-state/precondition verdict | **Ratified** | C3 (`runner.py`) | pending (C5) |
+| DN-58 | argv-structured descriptor; no shell string (I-5) | **Ratified** | C3/C5 | pending (C5) |
+| DN-59 | Guardrail mechanism now (timeout placeholder bound; bounded/redacted capture) | **Ratified** | C4 (`guards.py`) | pending (C5) |
+| DN-60 | Deterministic elevation lifecycle; machine mechanism injected | **Ratified** | C4 (`elevation.py`) | pending (C5) |
+| DN-61 | Runner writes execution records through `audit`; failed pre-write blocks run (AU8) | **Ratified** | C1/C3 | pending (C5) |
+| DN-62 | In-memory append-only store, hash-chain, §11 lifecycle, §22 reconciliation | **Ratified** | C1 (`store.py`) | pending (C5) |
+| DN-63 | This layer's boundaries' categories (execution, secret-metadata, approval/override/auto-permit/rejection) | **Ratified** | C1 (`records.py`) | pending (C5) |
+| DN-64 | Transcript derivation from the record only; form is RFC-0015's | **Ratified** | C2 (`transcript.py`) | pending (C5) |
+
+### Module ownership map
+
+| Module | Owning RFC sections | Protected by |
+|---|---|---|
+| `executor/runner.py` | RFC-0004 §4.9; RFC-0002 §2.8 | A2, I-1, I-5, I-11, P9, I-13 |
+| `executor/guards.py` | RFC-0001 §5 | §8.1, §8.8, SC8/SC10, §8.12 |
+| `executor/elevation.py` | RFC-0008 §8; RFC-0001 §8.6 | P12, SC10 |
+| `audit/records.py` | RFC-0013 §7, §9 | SC4, AU7, A7 |
+| `audit/store.py` | RFC-0013 §1, §11, §12, §21 | AU4, AU8, AU13, I-13 |
+| `audit/transcript.py` | RFC-0013 §8 | AU2 |
+
+### Public surface map
+
+- `executor`: run one token-bound Action under guardrails; report start/end and
+  sanitized output; scoped elevation (blueprint §5). No Propose/Verify/Approve/
+  Persist surface; Execute is the sole authority (RFC-0004 §7).
+- `audit`: append a record (append-only, before-consequence); render the
+  transcript from the record; reconcile failed writes (blueprint §5).
+  Persist/Explain only; never authority (RFC-0004 §4.12; AU1).
+
+### Layer-4 conformance summary
+
+- **No forbidden imports.** `executor` imports only `schema`/`audit`/`secrets`;
+  `audit` imports only `schema`/`secrets` (metadata types). No
+  `executor → policy`/`verification`/`factlayer`/`providers`/`skills` edge; no
+  `audit → factlayer`/`providers`/`context`/`policy`/`executor`/`secrets`
+  (values) edge.
+- **No I/O or subprocess in `executor`.** The run primitive is injected
+  (DN-55); the package performs no I/O, no subprocess spawn, and no shell
+  string construction (I-5, DN-58).
+- **No authority overlap.** Execute (executor) and Persist/Explain (audit) are
+  the only cells held; nothing else is exported beyond the owned vocabulary.
+- **Package tree unchanged.** `executor/{__init__,runner,guards,elevation}.py`
+  and `audit/{__init__,records,store,transcript}.py` match blueprint §2 exactly
+  (`test_packages.py`); lower layers never import them.
+
+### P/SC/AU boundary coverage
+
+- P1 execution half → DN-56 (independent enforcement); P9 → DN-57; P12 →
+  DN-60; P13/I-13 → DN-61/DN-62; SC4 → DN-63; SC10 → DN-60; AU1–AU16 → the C5
+  conformance oracle (RFC-0013 §33).
+- The §6.2 consultation edges, the Executing exits, the startup store opening,
+  the elevation mechanism, and the durable backing/retention/deletion remain
+  recorded against `core`/RFC-0021/RFC-0015/RFC-0020 (design review §1.2).
+
+### Remaining deferred items
+
+Recorded only; nothing is invented. Each belongs to a later iteration:
+
+| Deferred item | Owning future iteration / RFC |
+|---|---|
+| The §6.2 consultation edges and the Executing state exits | RFC-0002 §2.8/§6.2 `core` (Iteration 10) |
+| Session Initialization: opening the durable audit store, writability, elevation availability | RFC-0002 §2.1 `core` (Iteration 10) |
+| The machine's own elevation mechanism (sudo/polkit, revocation plumbing) | RFC-0021 §3.3 (Draft); injected at `executor.elevation` |
+| Concrete guardrail bounds (time budgets, output ceilings, retry windows) | RFC-0020 (RFC-0002 §11 Q2/Q3; DN-59) |
+| The durable backing of the audit store (storage, retention, deletion, export) | RFC-0020 (RFC-0013 §18–§20; DN-62) |
+| The Transcript presentation form | RFC-0015 (RFC-0013 §5; DN-64) |
+| The remaining §7 write points (proposal, classification, verification, fact-lifecycle, context-boundary, skill-event, operator-visibility) | their owning components (RFC-0013 §7, §23; DN-63) |
+| RFC-0013/RFC-0021 Draft rework risk | RFC acceptance / amendment (blueprint §9 #2) |
+
+### Completion verdict
+
+- Iteration 8 ratification (C0) is **complete**; the layer is **ready for C1**.
+- **No production code, no tests, no RFC, and no package change in C0.** The
+  five validation gates are green and the baseline suite (1722 tests) is
+  unchanged, exactly as every prior ratification commit.
+
+### Readiness for Iteration 9
+
+Iteration 9 is the **`context`** layer (blueprint §8.9 re-ordered; RFC-0012;
+RFC-0010 §3 Provider View). It begins with its own design review and
+ratification before implementation.
+
+---
+
 ## Known limitation
 
 Blueprint §8.1 Definition of Done requires the validator to "exit 0 on the

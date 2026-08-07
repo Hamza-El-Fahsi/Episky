@@ -1517,3 +1517,290 @@ tests), the Layer-3 conformance and invariant suites
 readings, and the next iteration is the `executor` + `audit` layer (RFC-0004
 §4.8–§4.10; RFC-0013) that DN-45 shifted to follow `policy`. No new decision
 note is required for this closeout.
+
+# Iteration 8 decision notes (Executor + Audit layer)
+
+The notes below record the Iteration 8 ratification (Operator, 2026-08-07) of
+the ten questions posed by `docs/iteration-8-design-review.md` §10 (Q1–Q10).
+They fix the reading of the reported ambiguities so that a reported ambiguity
+cannot reappear in a later iteration, and they **unblock Iteration 8
+implementation** (design review §16–§17 readiness). All ten questions are
+recorded as decision notes DN-55…DN-64: each fixes an iteration-scope or
+layer-mechanics reading that the frozen corpus leaves open. RFC-0013 is
+architecture-only ("no schemas, no APIs"; RFC-0005 §3; RFC-0013 §0), so each
+question resolves an *implementation interpretation*, never an architectural
+expansion; the corpus supplies the grounding. No question requires an RFC
+amendment, a `schema`/`systemmodel`/`trust`/`factlayer`/`verification`/
+`secrets`/`policy` change, a new module (the six `executor`/`audit` modules are
+already scaffolded per blueprint §2), or a new dependency edge beyond the
+declared `executor → {schema, audit, secrets}` and `audit → {schema, secrets}`
+sets (blueprint §4.1). The grounding RFCs cited below are Accepted where
+marked; RFC-0013 and RFC-0021 are Draft, whose rework risk is accepted per
+blueprint §9 #2 (the DN posture of Iterations 1–7).
+
+## DN-55 — The runner consumes an injected run primitive; the `executor` package performs no I/O and no subprocess spawn
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 8 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q1 |
+| Grounding | RFC-0004 §4.9 (the Executor "runs approved Actions against the Machine" — the sanctioned Action runner, the sole Execute cell); RFC-0002 §2.8 (the approved action runs "under the executor's guardrails: scoping, timeouts, output capture, secret-free handling, elevation per action"); RFC-0002 §6.2 (the Executor is "consulted only in Executing, and only with a valid, re-validated approval token"); RFC-0001 §5 (Action Execution responsibilities); RFC-0002 §6 (deterministic tools are the only subsystem that reads the machine); blueprint §3/§5 (executor public contract: "Run one token-bound Action under guardrails; report start/end and sanitized output; scoped elevation"), §8.8 (scaffold iteration) |
+| Embodied in | Iteration 8 implementation plan, Commit C3 |
+
+**Decision.** The runner takes an **injected run primitive**
+(`run(action, argv) -> RunResult`) supplied at the boundary. The `executor`
+package itself performs **no I/O and no subprocess spawn** — it validates the
+token, constructs the argv-structured descriptor, applies the guardrails,
+writes the execution records through `audit`, and hands the sanctioned
+descriptor to the injected primitive; the primitive's real machine interaction
+is `core`'s wiring at Iteration 10. This makes I-1/I-5/I-11 and the guardrails
+testable deterministically against a test primitive now, without a real
+subprocess and without `executor` reading the machine itself (RFC-0002 §6.2:
+the runner is not a deterministic-tools consumer). The package stays
+import-safe and conformance-testable at Layer 4.
+
+**Effect.** The run boundary is an injectable seam, not a subprocess call; the
+Layer-4 conformance suite can assert "no I/O, no subprocess, no forbidden
+stdlib" inside `executor`.
+
+## DN-56 — The token crosses as a structural handoff value; the runner re-validates it locally without importing `policy`
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 8 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q2 |
+| Grounding | RFC-0008 §8 (the Approval Token is "the only thing that carries permission to the Executor"; its scope list), §10 layer 3 (Independent enforcement: "the Executor does not trust the re-validation by word; it independently refuses to run anything not carrying a valid, unexpired, state-consistent token"); RFC-0004 A2 (Executor never invents; runs only token-bound Actions), §4.9 (Depends on: Approval Engine tokens); RFC-0002 I-11; blueprint §4.2 (`executor` must not import `policy`); Iteration 7 review §3 ("the token is the handoff value, not a call") |
+| Embodied in | Iteration 8 implementation plan, Commit C3 |
+
+**Decision.** The token crosses the boundary as a **structural handoff value**:
+its public fields (approved Action identity, class, gate, machine-state
+snapshot reference, session identity, expiry, consumed flag, elevation bounds)
+are read as a plain schema-shaped record. The runner **re-validates it locally
+and deterministically** — valid / unexpired / not-consumed / Action-identity
+match / session match (RFC-0008 §8 scope; RFC-0002 I-11) — without importing
+`policy`. This is RFC-0008 §10 layer 3's independent enforcement: the gate is
+enforced in two components (the Approval Engine's re-validation at `policy` and
+the Executor's own check here) so that a compromise of either still leaves the
+other refusing (RFC-0004 §9.7/§9.8). The token remains a `policy`-owned type at
+its mint site; only its *fields* cross, mirroring how the gate was carried as a
+field at `policy` (DN-46's carried-value precedent).
+
+**Effect.** Independent enforcement (P1's execution half, DN-45) is testable at
+the runner's surface; the `policy` import edge stays forbidden and the Layer-4
+conformance suite enforces it.
+
+## DN-57 — The runner re-validates locally and consumes the machine-state + precondition verdict as an explicit boundary input
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 8 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q3 |
+| Grounding | RFC-0008 §9 (preconditions re-checked at the execution boundary: assumptions/staleness, machine-state domains, Action identity), §10 layer 2 (re-validation at Awaiting Approval → Executing); RFC-0002 §6.2 edge (b) (the token "is re-validated against current policy, elevation, and machine state" at the Awaiting Approval → Executing edge); RFC-0002 I-11; RFC-0021 (Draft) §6 (State Domains); DN-48 (token carries an opaque machine-state snapshot reference; the State-Domain diff is RFC-0021's/runtime's); blueprint §4.2 (`executor` may not import `factlayer`/`policy`) |
+| Embodied in | Iteration 8 implementation plan, Commit C3 |
+
+**Decision.** The runner re-validates **what it can locally** (valid /
+unexpired / consumed / Action-identity / session, per DN-56) and consumes the
+**machine-state + precondition re-validation as an explicit boundary input** —
+a verdict computed by the §6.2 edge-(b) handler / runtime at the Awaiting
+Approval → Executing edge (RFC-0002 §6.2; RFC-0008 §9). Any uncertainty in
+either the local check or the consumed verdict → **refused** (fail closed,
+RFC-0008 §9 "If any precondition is uncertain, the gate treats it as not
+holding"; RFC-0002 §2.8). The runner never re-derives the State-Domain compare
+itself (that requires the Draft vocabulary and forbidden imports); the compare
+is the runtime's, exactly as DN-48 recorded.
+
+**Effect.** P9's boundary re-validation is satisfied as local-check +
+consumed-verdict, keeping `executor` free of `factlayer`/`policy` imports while
+making the refusal behavior (fail closed on uncertainty) testable now.
+
+## DN-58 — Execution uses an argv-structured descriptor built from the sanctioned Action structure only; no shell string is ever constructed
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 8 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q4 |
+| Grounding | RFC-0002 I-5 ("No untrusted text is ever interpolated into a command. Nothing from the LLM, from machine output, or from a skill is executed as a shell string. Actions are built from sanctioned structures only"); RFC-0001 §8.4 rule 4 ("No shell interpolation of untrusted text. Ever."); RFC-0007 §4.4 (classification/execution reads structured Action descriptions, never raw untrusted text); RFC-0003 §2.6 (Action is a structured canonical type) |
+| Embodied in | Iteration 8 implementation plan, Commit C3/C5 |
+
+**Decision.** The runner derives an **argv-structured execution descriptor**
+(`[executable, *args]`) from the sanctioned `schema.Action` structure only —
+never from free text, never from machine output, never from a skill — and
+**no shell string is ever constructed** at the executor boundary. The run
+primitive receives the descriptor as structured values. I-5 is enforced
+structurally and asserted by a boundary test that feeds LLM/machine/skill-shaped
+text and proves no shell string results (RFC-0002 I-5; RFC-0001 §8.4 rule 4).
+
+**Effect.** I-5 becomes a structural, testable guarantee of the runner, not an
+admonition; the argv boundary is what the injected run primitive (DN-55)
+consumes.
+
+## DN-59 — Guardrail mechanism now (timeout with placeholder bound; bounded, redacted output capture); concrete values are RFC-0020's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 8 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q5 |
+| Grounding | RFC-0001 §5 (Action Execution: "Apply the technical guardrails of a sanctioned action (scoping, timeouts, output capture, no secret leakage)"), §8.8 (output is limited — bounded, redacted, truncated rather than dumped), §8.12 (fail closed); RFC-0002 §11 Q3 (per-phase time budgets are an open question); RFC-0009 SC8/SC10 (no secret in output summaries / elevation exposes nothing); DN-18 (truncation mechanism with a placeholder default bound; the value is RFC-0020) |
+| Embodied in | Iteration 8 implementation plan, Commit C4 |
+
+**Decision.** The **mechanism** is built now: scoping to the one approved
+Action; a deterministic timeout over the injected run primitive with a
+**placeholder default bound** (DN-18 precedent — a bounded, configurable
+default whose concrete value is RFC-0020's, per RFC-0002 §11 Q3); bounded
+output capture that **truncates rather than dumps** (RFC-0001 §8.8); output
+**redacted via `secrets`** before it enters the record or any display
+(SC8/SC10); and fail-closed behavior on any guardrail error (RFC-0001 §8.12).
+A timed-out run yields an outcome-unknown result (RFC-0002 §2.8 → Interrupted
+at `core`), recorded as such. Concrete budgets and ceilings are RFC-0020's.
+
+**Effect.** The guardrails are testable deterministically now; no RFC-0020
+value is invented — the mechanism exists with an explicit placeholder bound.
+
+## DN-60 — `elevation.py` implements the deterministic elevation lifecycle; the machine mechanism is injected at the boundary
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 8 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q6 |
+| Grounding | RFC-0008 §8 Elevation (explicit, per-action, scoped, re-authenticated; an elevated Action is at least Consequential; bounds on the token; revoked at the end of that Action or on any invalidation; never persists, never covers unapproved work, never a standing root session); RFC-0001 §8.6 (explicit, scoped, re-authenticated; only for the approved action; Operator present); RFC-0021 (Draft) §3.3 (the machine's own elevation mechanism — not named here); DN-53 (elevation risk-property → at least Consequential; token records bounds; mechanism/revocation is `executor.elevation`'s) |
+| Embodied in | Iteration 8 implementation plan, Commit C4 |
+
+**Decision.** `elevation.py` implements the **deterministic elevation
+lifecycle** RFC-0008 §8 fixes: a per-Action elevation request carrying its
+bounds (which `policy` already enforced as at-least-Consequential, DN-53), and
+a **revocation** that fires at the end of that Action or on any invalidation.
+Elevation never persists, never covers unapproved work, and never forms a
+standing root session. The **machine's own mechanism** (RFC-0021 §3.3, Draft —
+sudo/polkit invocation and revocation plumbing) is **injected at the boundary**,
+not built here (§1.2). The module owns the request/revoke contract and the SC10
+no-exposure boundary (elevation never displays or records a value).
+
+**Effect.** P12 (explicit/per-action/scoped/revoked) and SC10 are testable at
+the executor surface now; the machine-specific mechanism stays deferred to
+RFC-0021 acceptance, exactly as RFC-0008 §8 fixes semantics but not mechanism.
+
+## DN-61 — The runner writes execution start/end records through `audit`; a failed pre-write blocks the run and is disclosed (AU8)
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 8 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q7 |
+| Grounding | RFC-0002 I-13 ("The audit trail is written before the consequence… recorded at the boundary, not after the fact, and never silently edited"); RFC-0013 §23 (execution start/end are audited before their consequences; "the write points are runtime boundaries"), §21 (fail closed: a failed audit write blocks the consequence it precedes); RFC-0004 A10 (Approval recorded before spent); RFC-0008 P13; blueprint §5's note ("every record is written *at a boundary* by the component whose consequence it precedes — RFC-0002 invariant 13; RFC-0013 §7"); DN-50 (the durable Audit write is `audit`'s DoD) |
+| Embodied in | Iteration 8 implementation plan, Commit C1/C3 |
+
+**Decision.** The **runner writes** the execution-start record through `audit`
+**before** the run and the execution-end record **after**, because the write
+point is the boundary of the component whose consequence it precedes (RFC-0013
+§23; blueprint §5's non-hub note). A **failed pre-write blocks the run and is
+disclosed** (AU8; RFC-0013 §21; RFC-0004 §9.12): no consequence proceeds
+unrecorded. This makes I-13/AU8 testable at this layer now, without `core`
+(Iteration 10). The other §7 write points (goal adoption, proposal,
+classification, verification, outcome) belong to their owning components
+(RFC-0013 §23; design review §1.2).
+
+**Effect.** I-13 and AU8 — the audit half of the §8.8 DoD — are enforced at the
+runner's surface: the execution record exists before any machine interaction
+is attempted, and a degraded store stops the run.
+
+## DN-62 — `store.py` is an in-memory append-only store with tamper-evidence, the §11 lifecycle, AU8 fail-closed, and §22 reconciliation; durable backing is deferred to RFC-0020
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 8 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q8 |
+| Grounding | RFC-0013 §1 (durable, append-only, tamper-evident record), §11 (lifecycle: Empty → Recording → Degraded → Recovering → …), §12 (legal transitions; anything not listed is illegal; Degraded → consequence proceeds is illegal), §21 (fail closed; fail loud; a gap is never patched by invention), §22 (reconciliation, never rewrite); RFC-0002 I-13; RFC-0004 A7; RFC-0001 §8.10 (append-only and honest); DN-19/DN-27/DN-34/DN-50 (in-memory mechanics now, durable mechanics deferred); RFC-0020 (storage mechanics, retention, deletion, export) |
+| Embodied in | Iteration 8 implementation plan, Commit C1 |
+
+**Decision.** `store.py` is an **in-memory append-only store** now: an ordered
+record list that can only be appended to; prior records immutable (A7/AU4); a
+**hash-chain** binds each record to its predecessor so any silent edit is
+detectable (RFC-0001 §8.10 tamper-evidence); the **§11 lifecycle state machine**
+(Empty → Recording → Degraded → Recovering) with the §12 legal transitions —
+Degraded → consequence proceeds is illegal (RFC-0004 §9.12); **AU8 fail-closed**
+(a failed or refused write moves the store to Degraded and is disclosed); and
+**§22 reconciliation** (a genuinely lost write is recorded as failed-to-record,
+never invented; deleted records never return — AU13). The durable backing
+(filesystem/database), retention (§19), deletion (§20), and export (§18)
+mechanics are RFC-0020's, recorded at design review §1.2.
+
+**Effect.** Append-only, tamper-evidence, the lifecycle, AU8, and reconciliation
+are testable now; no storage or retention mechanic is invented before RFC-0020.
+
+## DN-63 — `records.py` implements this layer's boundaries' categories; the remaining §7 categories arrive with their owning write points
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 8 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q9 |
+| Grounding | RFC-0013 §7 (the twelve record categories, each "written at its boundary before the consequence"), §16 (completeness: no actor exempt), §23 (the write points are runtime boundaries); RFC-0004 §4.12 (the Audit System owns the record format); DN-50 (the durable write of the issuance/override/auto-permit/rejection records is `audit`'s); blueprint §8.8 (this iteration's work: "record writers") |
+| Embodied in | Iteration 8 implementation plan, Commit C1 |
+
+**Decision.** `records.py` implements the canonical record types for **this
+layer's boundaries**: the execution record (cat. 6: action start/end, commands
+in sanitized form, machine state at the boundary), the secret-metadata record
+(cat. 10, built on `secrets` *metadata types* only — SC4; no value-shaped field
+exists by construction), and the approval / override / auto-permit / rejection
+records (cat. 4/5) whose durable write DN-50 assigned to audit. The remaining §7
+categories (proposal, classification, verification, fact-lifecycle,
+context-boundary, skill-event, operator-visibility) **arrive with their owning
+write points** — they are recorded, not dropped, and no category type is
+orphaned before its boundary exists (RFC-0013 §23: each is written at *its*
+boundary).
+
+**Effect.** The record vocabulary for the boundaries that exist in this layer is
+canonical and testable; the rest are deferred with their owners, not invented
+here.
+
+## DN-64 — `transcript.py` implements derivation from the record only; the presentation form is RFC-0015's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 8 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q10 |
+| Grounding | RFC-0013 §8 (Transcript Record Categories; "The Transcript is always renderable from the record; it never holds material the record does not"), §2 (derived, not primary; for the Operator; never evidence), §5 (RFC-0015 owns the presentation form); AU2 (Transcript is never evidence; Facts remain the only evidence model); RFC-0003 §2.8 (Transcript is the Operator-facing account derived from the record) |
+| Embodied in | Iteration 8 implementation plan, Commit C2 |
+
+**Decision.** `transcript.py` implements the **deterministic derivation**:
+transcript = render(record), producing exactly the §8 categories (dialogue,
+actions/outcomes, decisions/grounds, disclosures, recovery context) from the
+record **only** — never holding material the record does not (AU2; RFC-0013 §8;
+the §8.8 DoD). The **presentation form** (how the derived account is shown to a
+beginner) is RFC-0015's (RFC-0013 §5), recorded at design review §1.2. No
+verification or reasoning path consumes a transcript rendering (AU2).
+
+**Effect.** The "transcript derives from the record only" half of the §8.8 DoD
+is testable now; the form stays with RFC-0015.
+
+### Q1–Q10 question status
+
+| §10 Q | Subject | Status | Where resolved |
+|---|---|---|---|
+| Q1 | Run primitive: injected boundary vs real subprocess | **Ratified** | DN-55 (this file) |
+| Q2 | Token handoff type / independent re-validation without `policy` | **Ratified** | DN-56 (this file) |
+| Q3 | State-consistency/precondition verdict at the boundary | **Ratified** | DN-57 (this file) |
+| Q4 | Execution command construction (I-5, no shell) | **Ratified** | DN-58 (this file) |
+| Q5 | Guardrail mechanism vs RFC-0020 values | **Ratified** | DN-59 (this file) |
+| Q6 | Elevation module: lifecycle now vs deferred | **Ratified** | DN-60 (this file) |
+| Q7 | Record-before-consequence at the runner | **Ratified** | DN-61 (this file) |
+| Q8 | Audit store durability | **Ratified** | DN-62 (this file) |
+| Q9 | Record categories in scope | **Ratified** | DN-63 (this file) |
+| Q10 | Transcript derivation scope | **Ratified** | DN-64 (this file) |
+
+All ten §10 questions are resolved as decision notes; none requires an RFC
+amendment, a `schema`/`systemmodel`/`trust`/`factlayer`/`verification`/`secrets`/
+`policy` change, a new module (the six `executor`/`audit` modules are already
+scaffolded per blueprint §2), or a new dependency edge beyond the declared
+`executor → {schema, audit, secrets}` and `audit → {schema, secrets}` sets
+(blueprint §4.1). **Iteration 8 implementation is unblocked** (design review
+§16 readiness). The planned commits (design review §12) will be recorded in
+`docs/implementation-consistency-report.md` (Iteration 8 section) as they land.
