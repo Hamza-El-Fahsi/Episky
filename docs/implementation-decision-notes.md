@@ -2134,3 +2134,18 @@ are scaffolded stubs (blueprint §2) and the `context` dependency row is already
 declared in `tests/test_dependency_rules.py`, so the tree test stays green
 throughout. The next iteration after `context` is `providers` + `skills`
 (blueprint §8.10, re-ordered by DN-45 to Iteration 10).
+
+### DN-65 … DN-74 completion block (Iteration 9 closeout)
+
+| Note | Status | Embodiment | Validation |
+|---|---|---|---|
+| DN-65 … DN-74 | **Implemented** | C1–C5 | corresponding suites |
+
+**Iteration 9 completion note.** All ratified Context & Memory layer decisions
+(DN-65…DN-74) are implemented and validated: the full suite is green (2285
+tests), the Layer-4 conformance and invariant suites (`test_context_conformance.py`
+and `test_context_invariants.py`) enforce the ratified readings, and the next
+iteration is the `providers` + `skills` layer (blueprint §8.10, re-ordered by
+DN-45 to Iteration 10) that owns the runtime `core`-side wiring recorded as
+deferred in the consistency report. No new decision note is required for this
+closeout.

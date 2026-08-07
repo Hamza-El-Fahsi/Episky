@@ -756,3 +756,18 @@ here.
 context-and-memory-layer scaffold; no new architecture is proposed, and every
 ambiguity that the corpus does not decide is elevated to a blocking question for
 ratification rather than resolved here.
+
+**Post-implementation status (Iteration 9 closeout).** C1–C5 implemented and
+tested the layer, and this closeout records its completion. The `context`
+package (`assemble.py`, `boundaries.py`, `memory.py`, `provider_view.py`)
+landed in C1–C4; the conformance suite (`test_context_conformance.py`) and the
+CM/SC/PR invariant suite (`test_context_invariants.py`) landed in C5; the
+closeout (C6) completes the iteration. **Status: Complete.** The layer is
+deterministic, pure, and authority-free as designed — Observe and
+Persist-under-consent in `context` — with the §1.2 deferred halves (the Context
+Building state wiring, the STATE_CHANGED_DETECTED event and re-inspection, the
+history/skill-material producers, the cat-9 audit write, the View presentation
+form, the durable Memory backing, and the concrete bounds/catalogue) recorded
+against `core`/`providers`/`skills`/RFC-0014/RFC-0015/RFC-0020 in the
+consistency report. The full suite is green (2285 tests). The next iteration is
+the `providers` + `skills` layer (blueprint §8.10).

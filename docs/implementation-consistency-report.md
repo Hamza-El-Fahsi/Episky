@@ -1616,99 +1616,258 @@ Recorded only; nothing is invented. Each belongs to a later iteration:
 - Full suite: 1965 tests pass; ruff, format, build, and pre-commit are clean.
   Working tree is clean after C5.
 
-## Iteration 9 — the context layer (planned)
+## Iteration 9 — the `context` layer (complete)
 
-Iteration 9 is the **`context`** layer (RFC-0012; RFC-0010 §3 Provider View).
-Its design review (`docs/iteration-9-design-review.md`) is **ratified** (C0)
-and its ten reported ambiguities are fixed as decision notes DN-65…DN-74 in
-`docs/implementation-decision-notes.md`. The four `context` modules are
-scaffolded stubs (blueprint §2) and the `context` dependency row is already
-declared in `tests/test_dependency_rules.py`, so the tree tests stay green
-throughout the iteration. `context` runs at Layer 4 per DN-45's re-order
-(blueprint §8.9's "Iteration 8" label is superseded by DN-65 and stands until
-RFC-0020).
+Iteration 9 implements the **Context & Memory Layer** (`context`, RFC-0012;
+RFC-0010 §3 Provider View and §11 Context Boundary; RFC-0009 SC2/SC3/SC16;
+RFC-0007 S1–S8/T10; RFC-0002 I-4/I-13; blueprint §8.9, re-ordered by
+DN-45/DN-65 so it follows `executor` + `audit`). The full design review is
+`docs/iteration-9-design-review.md`; the ratified decisions are DN-65…DN-74 in
+`docs/implementation-decision-notes.md`. Commit C0 was the **docs-ratification
+commit** (answers all ten design-review questions Q1–Q10 as decision notes);
+C1–C5 implemented and tested the layer; C6 (this commit) records its
+completion. No RFC is modified, no module exists outside the blueprint §2 tree
+(the four `context` modules were already scaffolded per blueprint §2), and no
+dependency edge is added beyond the declared
+`context → {schema, factlayer, trust, secrets, systemmodel}` set (`secrets`
+classifier-types-only; blueprint §4.1/§4.2; DN-44 latent-edge precedent).
 
-### Commit map
+### Commit mapping (C0–C6)
 
-| Commit | Scope | Module | Est. impl LOC | Est. test LOC |
-|---|---|---|---|---|
-| C0 | Ratify design review (docs only) | — | ~800 docs | — |
-| C1 | Deterministic bounded assembly: six §6 category types, freshness gates + mark-stale, routing-state marker + §33 supersede-disclose, context-boundary event emission | `assemble.py` | ~280 | ~380 |
-| C2 | Sanitization enforcement point: S1–S8 + secrets classifier, fail-closed, placeholder-default policy | `boundaries.py` | ~120 | ~180 |
-| C3 | In-memory consented Memory store: promotion gate, three §7 categories, list/export/wipe, no-restore | `memory.py` | ~180 | ~420 |
-| C4 | Deterministic Provider View derivation (RFC-0010 §3 elements, secret-free) | `provider_view.py` | ~120 | ~380 |
-| C5 | Layer-level conformance + invariant suites, dependency and package gates, LOC check | `tests/` | — | ~140 |
-| C6 | Full gate run + iteration closeout (consistency report update) | — | — | — |
-
-### Question resolution (design review §10 → DN)
-
-| Q | Subject | Resolution |
+| Commit | Message | Content |
 |---|---|---|
-| Q1 | Iteration scope / renumbering | `context` = Iteration 9 per DN-45; blueprint §8.9 label superseded (**DN-65**) |
-| Q2 | Assembly input contract | `assemble()` consumes explicit boundary inputs; no I/O; `core` wires the runtime (**DN-66**) |
-| Q3 | Sanitization enforcement point | Mechanism now (S1–S8 + secrets classifier, fail-closed); per-source catalogue RFC-0020's (**DN-67**) |
-| Q4 | Provider View representation | Deterministic View derivation now; form RFC-0015's, signatures RFC-0020's (**DN-68**) |
-| Q5 | In-memory Memory abstraction | In-memory consented store now; durable backing RFC-0014/RFC-0020's (**DN-69**) |
-| Q6 | Context-boundary audit write | `context` emits events; `core` writes RFC-0013 §7 cat. 9 records (**DN-70**) |
-| Q7 | Routing state ownership | Marker + §33 supersede-disclose now; decisions `core`'s, persistence RFC-0014's (**DN-71**) |
-| Q8 | Freshness event model | Freshness gates + mark-stale now; event emission and re-inspection `core`'s (**DN-72**) |
-| Q9 | Six context categories | All six §6 categories as explicit types now (**DN-73**) |
-| Q10 | Evidence basis | Labeled material on `schema.VerificationOutcome`; §14 write boundary `verification`'s (**DN-74**) |
+| C0 `3d69943` | `docs: ratify Iteration 9 design review decisions` | Design-review ratification: Q1–Q10 resolved, DN-65…DN-74 recorded |
+| C1 `1506ccb` | `feat(context): implement deterministic bounded assembly (RFC-0012 §6, §12, §16, §33; DN-66, DN-70, DN-72, DN-73, DN-74; CM5–CM9, CM13)` | `assemble.py`: the pure assembly function over the boundary inputs (DN-66), the six §6 category types (DN-73), the §12 composition order, freshness gates + mark-stale (DN-72), routing-state marker + §33 supersede-disclose (DN-71), Evidence on `schema.VerificationOutcome` (DN-74), deterministic context-boundary events (DN-70) — 62 tests |
+| C2 `6d37f97` | `feat(context): implement deterministic context boundary enforcement (RFC-0012 §9, §13, §19, §23, §24, §32; RFC-0009 SC2, SC16; RFC-0007 S1–S8; CM4)` | `boundaries.py`: the sanitization enforcement point — `trust` S1–S8 + `secrets` classifier applied fail-closed before material enters Context or a View (SC2/CM4/T10), hostile/quarantined excluded, personal data secret until demotion (SC16), placeholder-default policy (DN-67) — 53 tests |
+| C3 `598fc65` | `feat(context): implement deterministic consented memory (RFC-0012 §7, §18–§22; RFC-0009 SC16; DN-69, DN-70; CM2, CM11, CM12, CM13, CM14, CM15)` | `memory.py`: in-memory consented store — promotion gate (consent + stated purpose, CM11), the three §7 categories, list/export/wipe (CM14), no-restore (CM13), never authority (CM2); promotion/destruction boundary events (DN-70) — 57 tests |
+| C4 `fad152c` | `feat(context): implement deterministic provider view (RFC-0010 §3, §11; RFC-0012 §13, §27; RFC-0007 §12; RFC-0002 I-4; DN-68; PR14, SC3, CM10)` | `provider_view.py`: the deterministic View derivation from the assembled Context — the only outward channel (PR14/CM10), carrying the §3 elements and nothing else, secret-free (SC3), size-bounded/purpose-limited/labeled/disposable (RFC-0007 §12; I-4) — 39 tests |
+| C5 `be0ae94` | `test(context): enforce Layer-4 conformance and context invariants` | `test_context_conformance.py` (imports limited to the declared sets + sanctioned stdlib, no I/O / no provider call / no forbidden stdlib / no clock / no randomness, public surface == owned vocabulary, ownership partitions, frozen + slots, package tree unchanged) + `test_context_invariants.py` (CM1–CM16, PR14, SC2/SC3/SC16, I-4/S7/T10, boundary/memory/view guarantees, cross-component obligations recorded against `core`/RFC-0014/RFC-0015/RFC-0020) — 109 tests |
+| C6 `(this commit)` | `docs: record Iteration 9 completion and context conformance` | This closeout |
 
-### Planned module ownership
+### Q1–Q10 resolution summary
 
-| Module | RFC-0012 ground | Public surface (planned) | Owned / verified here |
+| §10 Q | Subject | Resolution | Governing RFC / note |
 |---|---|---|---|
-| `assemble.py` | §12 composition, §6 categories, §16/§17 freshness, §33 routing, §31 events | `assemble` (boundary inputs → Context), category types, `mark_stale`, routing marker + supersede/disclose | CM1, CM6, CM7/CM8, Q12-answer (DN-66/DN-71/DN-72/DN-73) |
-| `boundaries.py` | §5 authority 2, §32 mechanics, §37 OQ3 | `sanitize_for_context`, `sanitize_for_view`, `validate` (S1–S8, secrets classifier, fail-closed, placeholder-default) | SC2, CM4, T10 (DN-67) |
-| `memory.py` | §7 categories, §22 consent | `promote`, `list`, `export`, `wipe` (in-memory, consented, no-restore) | CM11, CM13, CM14 (DN-69) |
-| `provider_view.py` | §13 boundary, §27 PR14 | `build_view` (RFC-0010 §3 elements, secret-free) | PR14, SC3, CM10 (DN-68) |
+| Q1 | Iteration scope / renumbering vs blueprint §8.9 | `context` executes at Iteration 9 per DN-45's re-order; blueprint §8.9's label stands until RFC-0020 | **DN-65**; blueprint §8.9 |
+| Q2 | Context assembly input contract | `assemble()` consumes explicit boundary inputs (Goal value, Fact set, labeled history, sanitized skill material, routing-state marker); no I/O; `core` wires the runtime | **DN-66**; RFC-0012 §8/§12; RFC-0002 §2.4 |
+| Q3 | Sanitization enforcement point | Mechanism now (S1–S8 + secrets classifier, fail-closed SC2/SC16); the per-source catalogue is RFC-0020's | **DN-67**; RFC-0012 §5/§32/§37 OQ3 |
+| Q4 | Provider View representation | Deterministic derivation now (RFC-0010 §3 elements, secret-free); form RFC-0015's, signatures RFC-0020's | **DN-68**; RFC-0010 §3/§11; RFC-0012 §13/§27 |
+| Q5 | In-memory Memory abstraction | In-memory consented store now; durable backing RFC-0014/RFC-0020's | **DN-69**; RFC-0012 §7/§22/§37 OQ4-OQ5 |
+| Q6 | Context-boundary audit write | `context` emits deterministic boundary events; `core` writes them as RFC-0013 §7 cat. 9 records before use (I-13) | **DN-70**; RFC-0013 §7 cat. 9/§23; RFC-0004 §9.11 |
+| Q7 | Routing state ownership | Marker + §33 supersede-disclose now; routing decisions `core`'s, persistence RFC-0014's | **DN-71**; RFC-0012 §6/§33; RFC-0002 §2.5/§2.6 |
+| Q8 | Freshness event model | Freshness gates + mark-stale function now; event emission and re-inspection `core`'s | **DN-72**; RFC-0012 §16/§17; RFC-0002 §4.2 |
+| Q9 | Six context categories | All six §6 categories as explicit types now; producers arrive with their owning iterations | **DN-73**; RFC-0012 §6/§8/§34 |
+| Q10 | Evidence basis | Labeled material on `schema.VerificationOutcome`; never verification power; §14 write boundary `verification`'s | **DN-74**; RFC-0012 §6 cat. 4/§26; RFC-0006 §14 |
 
-### Public surface and event contract
+### DN-65 … DN-74 implementation mapping
 
-`context` exposes the boundary-input assembly function and category types
-(`assemble.py`), the sanitization and validation enforcement point
-(`boundaries.py`), the Memory store (`memory.py`), and the View derivation
-(`provider_view.py`). It emits deterministic, value-free context-boundary
-events (category, size, identity, entered/destroyed) that `core` writes as
-RFC-0013 §7 cat. 9 records before the material's use (RFC-0002 I-13); the
-package never imports `audit` (CM15).
+| Note | Decision | Embodied in | Validated by |
+|---|---|---|---|
+| DN-65 | `context` = Iteration 9 per DN-45's re-order; blueprint §8.9 label superseded, stands until RFC-0020 | C0 (scope) | design review §10 Q1 |
+| DN-66 | `assemble()` consumes explicit boundary inputs; no I/O; `core` wires the runtime | C1 (`assemble.py`) | `test_context_assemble.py`; `test_context_invariants.py` |
+| DN-67 | Enforcement-point mechanism now (S1–S8 + secrets classifier, fail-closed); per-source catalogue RFC-0020's | C2 (`boundaries.py`) | `test_context_boundaries.py`; AST conformance |
+| DN-68 | Deterministic View derivation now; form RFC-0015's, signatures RFC-0020's | C4 (`provider_view.py`) | `test_context_provider_view.py`; AST conformance |
+| DN-69 | In-memory consented store now; durable backing RFC-0014/RFC-0020's | C3 (`memory.py`) | `test_context_memory.py`; AST conformance |
+| DN-70 | `context` emits deterministic boundary events; `core` writes cat-9 records before use (I-13) | C1/C3 (`assemble.py`, `memory.py`) | `test_context_assemble.py`; `test_context_memory.py` |
+| DN-71 | Routing-state marker + §33 supersede-disclose now; decisions `core`'s, persistence RFC-0014's | C1 (`assemble.py`) | `test_context_assemble.py`; `test_context_invariants.py` |
+| DN-72 | Freshness gates + mark-stale function now; event emission/re-inspection `core`'s | C1 (`assemble.py`) | `test_context_assemble.py`; `test_context_invariants.py` |
+| DN-73 | All six §6 categories as explicit types now | C1 (`assemble.py`) | `test_context_assemble.py`; `test_context_invariants.py` |
+| DN-74 | Evidence as labeled material on `schema.VerificationOutcome`; §14 write boundary `verification`'s | C1 (`assemble.py`) | `test_context_assemble.py`; `test_context_invariants.py` |
+
+### Module ownership map
+
+| Type / value | Module | Owning RFC |
+|---|---|---|
+| `Assembly`, `BoundaryEvent`, `BoundaryEventKind`, `Context`, `ContextCategory`, `ContextState`, `Disclosure`, `EvidenceLabel`, `GoalValue`, `HistoryLabel`, `RoutingMarker`, `SkillMaterialItem`, `Supersession`, `TurnRecord`, the `DEFAULT_*_BOUND` values, the `REASON_*` values, `assemble`, `mark_stale`, `supersede_question` | `context/assemble.py` | RFC-0012 §6/§8/§12/§16/§17/§33; RFC-0002 §2.4; RFC-0003 §2.3 |
+| `BoundaryDecision`, `BoundaryDisposition`, `BoundaryInput`, `BoundaryRefusal`, `BoundaryReport`, `DEFAULT_BOUNDARY_LIMIT`, `admit`, `admit_all` | `context/boundaries.py` | RFC-0012 §9/§13/§19/§23/§24/§32; RFC-0009 SC2/SC16; RFC-0007 S1–S8 |
+| `Memory`, `MemoryCategory`, `MemoryEntry`, `MemoryEvent`, `MemoryOutcome`, `MemoryRefusal`, `empty`, `export`, `list_entries`, `promote`, `remove`, `wipe` | `context/memory.py` | RFC-0012 §7/§18–§22; RFC-0001 §9.2/§9.5 |
+| `ProviderView`, `ProviderViewOutcome`, `ViewDisposition`, `ViewRefusal`, `derive` | `context/provider_view.py` | RFC-0010 §3/§11; RFC-0012 §13/§27; RFC-0007 §12 |
+
+Each type is defined in exactly one module; no type is re-defined or shared
+across modules (RFC-0004 §3 one-owner rule; design review §4). The `schema`
+`Fact`/`VerificationOutcome` and `trust`/`secrets` types are consumed as values
+and never re-declared.
+
+### Public surface map
+
+| Module | Public surface (`__all__`) |
+|---|---|
+| `context/assemble.py` | `Assembly`, `BoundaryEvent`, `BoundaryEventKind`, `Context`, `ContextCategory`, `ContextState`, `DEFAULT_EVIDENCE_BOUND`, `DEFAULT_FACT_BOUND`, `DEFAULT_HISTORY_BOUND`, `DEFAULT_SKILL_BOUND`, `Disclosure`, `EvidenceLabel`, `GoalValue`, `HistoryLabel`, `REASON_OVERFLOW`, `REASON_STALE_EXCLUDED`, `REASON_UNPURPOSEFUL`, `RoutingMarker`, `SkillMaterialItem`, `Supersession`, `TurnRecord`, `assemble`, `mark_stale`, `supersede_question` |
+| `context/boundaries.py` | `BoundaryDecision`, `BoundaryDisposition`, `BoundaryInput`, `BoundaryRefusal`, `BoundaryReport`, `DEFAULT_BOUNDARY_LIMIT`, `admit`, `admit_all` |
+| `context/memory.py` | `Memory`, `MemoryCategory`, `MemoryEntry`, `MemoryEvent`, `MemoryOutcome`, `MemoryRefusal`, `empty`, `export`, `list_entries`, `promote`, `remove`, `wipe` |
+| `context/provider_view.py` | `ProviderView`, `ProviderViewOutcome`, `ViewDisposition`, `ViewRefusal`, `derive` |
+
+The facade (`context/__init__.py`) re-exports nothing and leaks no internal
+placeholder (design review §6). `context` holds **Observe** (assembly + View)
+and **Persist under consent** (Memory) only (RFC-0004 §7); it never decides
+(CM2), never carries permissions (CM16), and is never the Audit (CM15).
+
+### Layer-4 conformance summary
+
+Verified by `tests/test_context_conformance.py` and the AST-conformance
+sections inside each context test module (mirroring the trust/secrets/policy/
+executor/audit precedent):
+
+- **Imports.** `context` imports only stdlib + `schema`/`factlayer`/`trust`/
+  `secrets`/`systemmodel`; the declared `context → systemmodel` edge stays
+  **latent** (DN-44 precedent) and `context → secrets` is restricted to
+  **classifier types only** (blueprint §4.2; SC2/SC3 construction).
+- **No forbidden imports.** No higher-layer or authority-bearing package
+  (collectors, verification, policy, executor, audit, providers, skills, core,
+  cli); no I/O-, concurrency-, clock-, persistence-, randomness-, or
+  crypto-capable stdlib (no `os`, `pathlib`, `json`, `sqlite3`, `threading`,
+  `asyncio`, `socket`, `subprocess`, `secrets`, `random`, `hashlib`, …).
+- **No dependency-edge violations.** `test_dependency_rules.py` green; declared
+  and observed import graphs acyclic (`context → {assemble, boundaries, memory,
+  provider_view}` → `schema`/`factlayer`/`trust`/`secrets` → stdlib).
+- **No forbidden runtime logic.** No top-level control flow; module-level code
+  builds only constant data (enums, the placeholder bounds); no I/O, clocks,
+  randomness, persistence, or provider calls anywhere; time is caller-supplied
+  and nothing reads a clock (determinism; RFC-0007 S7).
+- **Frozen + slots.** Every public dataclass (`Context`, `Assembly`,
+  `BoundaryEvent`, `Disclosure`, `TurnRecord`, `GoalValue`, `EvidenceLabel`,
+  `SkillMaterialItem`, `RoutingMarker`, `Supersession`, `BoundaryInput`,
+  `BoundaryDecision`, `MemoryEntry`, `MemoryEvent`, `ProviderView`, …) is
+  frozen and slot-based (DN-34 precedent).
+- **No ownership overlap / no placeholder leaks.** `__all__` equals the
+  ownership map per module; names unique across modules; no underscore-prefixed
+  name exported; the facade re-exports nothing.
+- **Package tree unchanged.** `context/{__init__,assemble,boundaries,memory,
+  provider_view}.py` match blueprint §2 exactly (`test_packages.py`); Layer 0
+  never imports `context`.
+- **No secret value enters Context, Memory, or the View.** `admit` fail-closes
+  secret-shaped values (SC2/CM4/T10); a known token fed at the boundary appears
+  nowhere in Context, its View, or Memory (SC2/SC3); personal data stays secret
+  until an explicit Operator demotion (SC16).
+- **No authority.** No decision, approval, or truth path (CM2); no permission-
+  or capability-bearing value in Context or Memory (CM16); no Audit record or
+  raw transcript material (CM15); the package never widens a grant.
+
+### CM invariant coverage table
+
+Verified against the RFC-0012 §35 CM1–CM16 oracle (design review §8). The
+runtime-owned halves (CM7/CM8/CM9/CM12 event emission and audit write) are
+enforced as deterministic mechanics and recorded against `core` below;
+everything the layer can enforce at its own surface has a test:
+
+| Invariant | What is verified |
+|---|---|
+| CM1 | Never a source of truth: Fact identity/status/provenance are never upgraded; a Fact without Fact-Layer provenance never becomes reasoning material (assembly + View) |
+| CM2 | Memory is never authority: `memory.py` exposes no decision/approval/truth path; no authority reads Memory (conformance + `hasattr` checks) |
+| CM3 | Only the Context Manager assembles: an AST scan proves only `assemble.py` calls `Context(`; the field order is exactly §12 |
+| CM4 | Context is secret-free by construction: `admit` fail-closes secret-shaped values; a known token appears nowhere in Context (SC2/T10) |
+| CM5 | Context is purpose-limited: assembly requires a stated purpose; unrelated material is excluded and refused (`REASON_UNPURPOSEFUL`) |
+| CM6 | Context is bounded: size bounds hold; overflow consolidates transparently (`REASON_OVERFLOW`, disclosure count), never silently grows |
+| CM7 | Fresh or rebuilt: Stale/Expired Facts are excluded or mark the set Stale (`REASON_STALE_EXCLUDED`); the re-inspection trigger is `core`'s |
+| CM8 | Invalidation is deterministic and precedes use: `mark_stale` consumes the event as an input and records the invalidation as an `INVALIDATED` boundary event before any use; the event emission is `core`'s |
+| CM9 | Session-isolated: one working set per assembly, one active Goal, no cross-session merge in the package |
+| CM10 | Propagates only by assembly: the Provider View is the only outward surface; nothing else exports Context material (PR14) |
+| CM11 | Durable Memory only by explicit consent: the promotion gate refuses promotion without consent carrying a stated purpose, with no durable artifact |
+| CM12 | Destruction is complete and recorded: `remove`/`wipe` return new immutable state with the promotion/destruction event; the cat-9 record is `core`'s write |
+| CM13 | Recovery is re-assembly, never restore: a lost set is rebuilt from Facts, never a snapshot; a token-level scan proves `memory.py`/the package have no restore path |
+| CM14 | Visible, exportable, wipable: `list_entries`/`export`/`wipe` on Memory; removal of a missing entry is a disclosed `NOT_FOUND` refusal |
+| CM15 | Never the Audit: no `episky.audit` import; the package never holds or emits the material as a record; the cat-9 write is `core`'s |
+| CM16 | Carries no permissions: no policy/executor/providers import; a credential-like value in Context grants nothing; no capability-bearing field |
+
+### PR14 coverage
+
+The Provider View is the only outward channel (RFC-0010 §13; RFC-0012 §27;
+RFC-0007 T3), verified by:
+
+- An AST scan over the whole package proves `provider_view.py` is the **only**
+  module that constructs a `ProviderView` (nothing else exports Context
+  material).
+- `derive(context)` is a pure projection: it carries exactly the RFC-0010 §3
+  elements (Goal, Facts, History, Evidence, routing state) and nothing else —
+  no Audit, no secret, no raw output, no provider identity; the projection is
+  deterministic and value-preserving (`derive(c) == derive(c)`).
+- The View is secret-free by construction (SC3): a known token fed at the
+  boundary appears nowhere in any derived View (`test_context_provider_view.py`,
+  `test_context_invariants.py`).
+- The one-way flow holds: material leaves `context` only as a derived View or a
+  consented Memory promotion/destruction event (CM10; I-4 surface).
+
+### SC2 / SC3 / SC16 coverage
+
+| Invariant | What is verified |
+|---|---|
+| SC2 — the default is secret-free | `admit` fail-closes secret-shaped values at the enforcement point; no secret in Context in any form (CM4/T10); a known token appears nowhere in Context or its View |
+| SC3 — no secret enters a Provider View | The View is derived secret-free; a known token fed at the boundary appears nowhere in any View; `provider_view.py` has no secret/value field |
+| SC16 — privacy parity | Personal data (`NonSecretDesignation`) stays secret until an explicit Operator demotion (`MARKED_PUBLIC`) consumed at the boundary; Memory holds no private content without demotion; demotion collection is `cli`/`core`'s |
 
 ### Dependency verification
 
-- Allowed (blueprint §4.1/§4.2): `context → {schema, factlayer, trust, secrets, systemmodel}`.
-- `context → secrets` restricted to **classifier types only** (no values), per
-  RFC-0004 §4.11 and blueprint §4.2; `context → systemmodel` is a latent edge
-  (DN-44) exercised once a system model exists.
-- Forbidden: `context → {providers, policy, executor, audit}`; `providers` may
-  import `context` (Iteration 10); `cli → context` (Iteration 12).
-- Enforced by `tests/test_dependency_rules.py` (already declared) and the
-  Layer-4 conformance suites planned at C5.
+- `tests/test_dependency_rules.py` green: `context` imports only within
+  `ALLOWED["context"] = {"schema", "factlayer", "trust", "secrets",
+  "systemmodel"}`; the forbidden set `FORBIDDEN["context"] = {"providers",
+  "policy", "executor", "audit"}` holds; `secrets` is restricted to classifier
+  types (no values); graphs acyclic.
+- `tests/test_packages.py` green: tree matches blueprint §2 exactly.
+- Enforced additionally by `test_context_conformance.py`: the exact ratified
+  import set per module, forbidden packages and stdlib, no clock/randomness, no
+  provider call, no top-level runtime logic.
 
-### Deferred ownership (recorded against owners)
+### Ownership verification
 
-| Deferred item | Owner | Recording |
-|---|---|---|
-| Goal schema shape and final Context/View signatures | RFC-0020 | DN-66/DN-68 (DN-1) |
-| Per-source sanitization catalogue (RFC-0012 §37 OQ3) | RFC-0020 | DN-67 |
-| Memory durable backing (storage, retention, export, resume) | RFC-0014/RFC-0020 | DN-69 (DN-62 precedent) |
-| Routing-state persistence across interrupts | RFC-0014 | DN-71 |
-| Freshness-event emission and re-inspection trigger | `core` (Iteration 11) | DN-72 (RFC-0002 §4.2) |
-| History producer, Skill-material producer, live Goal source | `core`/`providers`/`skills` (Iterations 10–11) | DN-66/DN-73 |
-| RFC-0012/RFC-0013 Draft rework risk | RFC acceptance / amendment (blueprint §9 #2) | DN-65…DN-74 preamble |
+- One owner per name: each `__all__` name is defined by exactly one module; no
+  type is re-declared; the `schema`/`trust`/`secrets`/`factlayer` types are
+  consumed as values (RFC-0004 §3).
+- **No authority overlap.** `context` holds Observe (assembly + View) and
+  Persist under consent (Memory) only; it holds no decision cell (CM2/CM16),
+  never writes an Audit record (CM15), and never performs sanitization values
+  handling — the enforcement point delegates classification to `secrets`
+  (classifier types only; DN-67).
+- The runtime halves are owned elsewhere and recorded, never implemented here:
+  the cat-9 audit write is `core`'s (Q6), the routing transitions `core`'s
+  (Q7), the freshness-event emission `core`'s (Q8).
 
-### Readiness for Commit C1
+### Remaining deferred items
 
-- **Ready once C0 lands.** Q1–Q10 are ratified as DN-65…DN-74; the design
-  review is self-consistent (§16) and the Layer-4 Definition of Done
-  (CM1–CM16; PR14; SC2; CM13) is the conformance oracle.
-- C1 = `feat(context): deterministic bounded assembly` (~280 impl / ~380 test
-  LOC): the six §6 category types, the freshness gates and `mark_stale`, the
-  routing-state marker with §33 supersede-disclose, and the context-boundary
-  event emission. No I/O, no provider call, no `audit` import.
-- C1 carries no DoD risk: every C1 surface is an input-output contract
-  testable against supplied material (DN-66), and the dependency row is already
-  green in the tree tests.
+Recorded only; nothing is invented. Each belongs to a later iteration:
+
+| Deferred item | Owning future iteration / RFC |
+|---|---|
+| The Context Building state wiring (entry/exit conditions, re-entry, the exits → Diagnosis/Planning/Awaiting Input) | RFC-0002 §2.4/§6 `core` (Iteration 11) |
+| STATE_CHANGED_DETECTED emission and the re-inspection trigger | RFC-0002 §4.2; RFC-0005 §12 `core` + `factlayer` (Iteration 11) |
+| The history/turn producers (Operator input, Provider replies, proposals, decisions) | RFC-0012 §6 cat. 3 `core` (session) + `providers` (Iteration 10) |
+| Skill material and its pre-entry sanitization (code never enters) | RFC-0011 §26/SK13 `skills` + `providers` (Iteration 10) |
+| The cat-9 audit write of the context-boundary events | RFC-0013 §7 cat. 9/§23; RFC-0004 §9.11 `core` (Iteration 11) |
+| The Provider View presentation form | RFC-0010 §15 OQ3; RFC-0015 `cli`/RFC-0015 |
+| Concrete size/freshness bounds and the per-source sanitization catalogue | RFC-0012 §37 OQ1–OQ3 RFC-0020 (DN-18 placeholder precedent) |
+| Memory durable backing (storage, retention, deletion, export, resume-survival) | RFC-0012 §37 OQ4/OQ5; RFC-0014/RFC-0020 (DN-69) |
+| Routing-state persistence across interrupts | RFC-0012 §37 OQ4; RFC-0014 (DN-71) |
+| The Operator consent collection (Memory promotion/wipe UI) | RFC-0001 §9.2/§9.5 `cli`/RFC-0015 |
+| The Goal schema shape, final Context/View signatures, and package naming | RFC-0020 (DN-1; DN-66/DN-68) |
+| The RFC-0012 §39 vocabulary additions to RFC-0003 Part I | RFC-0003 Part II amendment |
+| RFC-0012/RFC-0013 Draft rework risk | RFC acceptance / amendment (blueprint §9 #2) |
+
+### Completion verdict
+
+- Iteration 9 implementation is **complete**.
+- **Layer-4 Definition of Done is satisfied** (design review §14 overall DoD):
+  every layer-enforceable CM1–CM16, PR14, SC2, and CM13 has a test; SC3/SC16
+  and the I-4/S7/T10 boundary surfaces are covered; the durable and
+  runtime-owned halves are recorded against
+  `core`/`providers`/`skills`/RFC-0014/RFC-0015/RFC-0020 exactly as ratified.
+- **C0–C6 are complete.** The `context` layer is complete per the blueprint and
+  the design review; the four modules (`assemble` + `boundaries` + `memory` +
+  `provider_view`) are each deterministic, pure, and authority-free.
+- Full suite: **2285 tests pass** (1965 baseline + 320 new); ruff, format,
+  build, and pre-commit are clean. Working tree is clean after C6.
+
+### Readiness for Iteration 10
+
+- The next iteration is the **`providers` + `skills`** layer (blueprint §8.10,
+  re-ordered by DN-45 to Iteration 10). `context` is complete and
+  conformance-enforced; `providers` and `skills` may import `context` (blueprint
+  §4.2) and consume the Provider View (PR14) and skill-material sanitation
+  (RFC-0011 §26) at the boundary.
+- The runtime `core`-side obligations (Context Building state wiring, the
+  STATE_CHANGED_DETECTED event and re-inspection, the cat-9 audit write) are
+  recorded with their owners and will bind `core` at Iteration 11.
+- **Ready.** Baseline 2285 green; DN-65…DN-74 are all implemented and validated
+  (no open decision notes); the deferred-items table names every §1.2 owner;
+  the tree and dependency edges are unchanged.
 
 ---
 
