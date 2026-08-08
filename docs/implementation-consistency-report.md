@@ -1871,6 +1871,270 @@ Recorded only; nothing is invented. Each belongs to a later iteration:
 
 ---
 
+## Iteration 10 — the `providers` + `skills` layer (complete)
+
+Iteration 10 implements the **Layer-5 Providers & Skills layer** (`providers`,
+RFC-0010; `skills`, RFC-0011; blueprint §8.10, re-ordered by DN-45 to follow
+`context`). The full design review is `docs/iteration-10-design-review.md`; the
+ratified decisions are DN-75…DN-84 in `docs/implementation-decision-notes.md`.
+Commit C0 was the docs-ratification commit (answers all ten design-review
+questions Q1–Q10 as decision notes); C1–C5 implemented and tested the layer;
+C6 (this commit) records its completion and the layer's conformance. No RFC
+is modified, no module exists outside the blueprint §2 tree (the
+`providers/{__init__,contract,view,adapters}.py` and
+`skills/{__init__,loader,activation,runtime}.py` modules were already
+scaffolded in Iteration 0 and are filled, not created), and no dependency edge
+is added beyond the declared `providers → {schema, trust, context}` and
+`skills → {schema, collectors, trust, policy, factlayer}` sets (blueprint
+§4.1/§4.2). The layer exercises the two new meaningful edges the plan named —
+`providers → context` (consumes the `context`-built Provider View, PR14) and
+`skills → policy` / `skills → collectors` (types only) — and the deliberately
+absent `providers ↔ skills` edge stays absent (DN-82).
+
+### Commit mapping (C0–C6)
+
+| Commit | Message | Content |
+|---|---|---|
+| C0 `6d5814b` | `docs: ratify Iteration 10 design review decisions` | Design-review ratification: Q1–Q10 resolved, DN-75…DN-84 recorded |
+| C1 `b2b0dda` | `feat(providers): implement deterministic provider contracts` | `contract.py`: the finite RFC-0010 §4 structured outputs as deterministic validators over the `schema` types (Proposal, Explanation, Questions, Clarifications, Alternative Plans, Refusal, Failure, Need More Evidence), the expected-effect rule (a Proposal without its expected effect is rejected — RFC-0008 §5, PR13), nothing a Fact (F6), an instruction, or authority (PR2/PR3/PR6), nothing executes (PR1), malformed values degrade, never crash (PR11) — 70 tests |
+| C2 `cb3d67c` | `feat(providers): implement provider lifecycle and capability view` | `view.py`: consume exactly the `context`-built Provider View and nothing else (PR14/SC3/PR8; RFC-0002 I-4), the §5 capability vocabulary and declaration (no capability implies permission, PR12), the deterministic §6 negotiation adaptation, the §7 lifecycle mechanics (register/activate/remove), and the §8 failure → RFC-0002 §4.3 event classification (Timeout→PROVIDER_TIMEOUT, …; PR11/PR16); selection/fallback RFC-0016's, consultation `core`'s — 47 tests |
+| C3 `62fd8ef` | `feat(skills): implement the registry load-and-authenticate boundary (RFC-0011 §3, §22, §19)` | `loader.py`: read the declared surface; authenticate signature and provenance (an unauthenticated Skill is never loaded and never substituted, SK5); validate the declaration (targets, privileges, risk, capabilities, dependencies, Pre/Postconditions, verification approach) and the bundled Collectors; check Policy before activation; register with the Core enumeration; version + signature ride the manifest (§19); packaging/signing scheme RFC-0017/0020's — 47 tests |
+| C4 `dc329b5` | `feat(skills): implement deterministic skill activation boundary` | `activation.py`: the per-session, reversible, Policy-gated §23 lifecycle (no unauthenticated substitution, no authority grant), with the §16 audited events carrying session and Skill identity; verification and consultation `core`'s — 43 tests |
+| C5 `5c180ce` | `feat(skills): implement skill runtime gate-participation boundary` | `runtime.py`: §24 gate participation — every Skill Action passes the exact same gate as any Action (SK4), no unit approval, no skill-based shortcut, declared Pre/Postconditions ride every Action (SK11) and are never waivable (SK12), the verification approach is declaration-only (SK6), an incomplete Proposal is refused (RFC-0008 §5); consultation and session scope `core`'s — 38 tests |
+| C6 `(this commit)` | `docs: record Iteration 10 completion and providers/skills conformance` | This closeout |
+
+### Q1–Q10 resolution summary
+
+| §10 Q | Subject | Resolution | Governing RFC / note |
+|---|---|---|---|
+| Q1 | Iteration scope / renumbering vs blueprint §8.10 | `providers` + `skills` execute at Iteration 10 per DN-45's re-order; blueprint §8.10's label superseded and stands until RFC-0020 | **DN-75**; blueprint §8.10 |
+| Q2 | Provider contract surface | `contract.py` validates the finite RFC-0010 §4 outputs over the `schema` types now, with the expected-effect rule; per-vendor adapters are RFC-0020's and `adapters/` stays a scaffold | **DN-76**; RFC-0010 §0/§4/§8/§15 OQ6; RFC-0008 §5 |
+| Q3 | Provider request lifecycle | `view.py` implements §7 lifecycle mechanics + §5 capability vocabulary + deterministic §6 negotiation now; selection/fallback RFC-0016's, consultation `core`'s | **DN-77**; RFC-0010 §5/§6/§7/§9 |
+| Q4 | Provider response ownership | The provider package validates and returns contract-shaped §4 outputs; routing to the deterministic consumers is `core`'s; nothing is interpreted into validity (PR13) | **DN-78**; RFC-0010 §4/§8; RFC-0002 §6 |
+| Q5 | Provider error handling | §8 failures classify into the RFC-0002 §4.3 events deterministically (PR11/PR16); retry/fallback/degraded are `core`'s | **DN-79**; RFC-0010 §8; RFC-0002 §4.3/§10 |
+| Q6 | Skill registry ownership | `loader.py` is the Skill Registry's load-and-authenticate boundary (SK5/SK15, §22); version + signature ride the manifest, scheme RFC-0017/0020's | **DN-80**; RFC-0011 §3/§22/§19 |
+| Q7 | Skill invocation boundary | `activation.py` §23 lifecycle + `runtime.py` §24 gate participation (SK4/SK11/SK12); consultation and session scope `core`'s | **DN-81**; RFC-0011 §23/§24; RFC-0002 §6 |
+| Q8 | Provider↔skill interaction | RFC-0011 §20's rules are `core`'s obligation with no direct edge (blueprint §4.1); SK13 is asserted at the boundary | **DN-82**; RFC-0011 §20 |
+| Q9 | External API boundaries | Both packages are I/O-free — no network, subprocess, filesystem, vendor, or skill-fetch I/O; everything injected (DN-55); vendor calls, skill fetch, and sandbox execution are RFC-0020's/RFC-0017's | **DN-83**; RFC-0010 §0/§15 OQ6; RFC-0011 §30 OQ2 |
+| Q10 | Runtime ownership / no-vendor-knowledge | The provider package is the sole vendor-facing surface (PR10/PR15), enforced by conformance; SC3/SC5 asserted by boundary injection, no `secrets` import; runtime separation `core`'s | **DN-84**; RFC-0010 §12/§13; RFC-0009 SC3/SC5 |
+
+### DN-75 … DN-84 implementation mapping
+
+| Note | Decision | Embodied in | Validated by |
+|---|---|---|---|
+| DN-75 | `providers` + `skills` = Iteration 10 per DN-45's re-order; §8.10 label superseded | C0 | design review §10 Q1 |
+| DN-76 | Finite §4 outputs over `schema` types + expected-effect rule now; adapters RFC-0020's | C1 (`contract.py`) | `test_providers_contract.py`; AST conformance |
+| DN-77 | §7 lifecycle + §5 capability vocabulary + §6 negotiation now; selection RFC-0016's | C2 (`view.py`) | `test_providers_view.py`; AST conformance |
+| DN-78 | Contract-shaped §4 outputs; routing `core`'s; nothing interpreted into validity | C1 (`contract.py`) | `test_providers_contract.py`; AST conformance |
+| DN-79 | §8 failures → §4.3 events deterministically; reaction `core`'s | C2 (`view.py`) | `test_providers_view.py`; AST conformance |
+| DN-80 | `loader.py` = load-and-authenticate boundary (SK5); version + signature ride the manifest | C3 (`loader.py`) | `test_skills_loader.py`; AST conformance |
+| DN-81 | `activation.py` §23 + `runtime.py` §24 gate participation; consultation `core`'s | C4/C5 (`activation.py`, `runtime.py`) | `test_skills_activation.py`; `test_skills_runtime.py`; AST conformance |
+| DN-82 | §20 provider↔skill rules `core`'s, no edge; SK13 asserted at the boundary | C1–C5 (no `skills → providers` edge) | `test_dependency_rules.py` |
+| DN-83 | Both packages I/O-free; everything injected; vendor/sandbox RFC-0020/0017's | C1–C5 (I/O-free mechanics) | AST conformance in every module suite |
+| DN-84 | Provider package = sole vendor-facing surface (PR10/PR15); SC3/SC5 by injection | C1/C2/C3/C5 (boundary surfaces) | `test_providers_view.py`; `test_skills_loader.py`; `test_skills_runtime.py` |
+
+### Module ownership map
+
+| Type / value | Module | Owning RFC |
+|---|---|---|
+| `ProviderOutputKind`, `ValidationDisposition`, `ValidationRefusal`, `Explanation`, `Questions`, `Clarifications`, `AlternativePlans`, `Refusal`, `Failure`, `NeedMoreEvidence`, `ValidationOutcome`, `validate` | `providers/contract.py` | RFC-0010 §4/§8; RFC-0008 §5; RFC-0003 §2.6 |
+| `ProviderCapability`, `ProviderStage`, `ProviderFailure`, `ProviderEvent`, `ConsumptionDisposition`, `ConsumptionRefusal`, `LifecycleDisposition`, `LifecycleRefusal`, `RequestKind`, `CapabilityDeclaration`, `ProviderLifecycle`, `Consumption`, `LifecycleOutcome`, `Negotiation`, `consume`, `declare`, `register`, `activate`, `remove`, `negotiate`, `classify` | `providers/view.py` | RFC-0010 §3/§5/§6/§7/§8; RFC-0002 §4.3 |
+| `SkillCapability`, `SkillStage`, `AuthenticationVerdict`, `PolicyVerdict`, `LoadDisposition`, `LoadRefusal`, `SkillDependency`, `SkillManifest`, `Skill`, `LoadOutcome`, `load` | `skills/loader.py` | RFC-0011 §3/§7/§8/§9/§22; RFC-0002 §4.7 |
+| `ActivationStage`, `ActivationVerdict`, `ActivationEvent`, `ActivationRefusal`, `ActivationRequest`, `ActivationOutcome`, `Activation`, `activate`, `deactivate` | `skills/activation.py` | RFC-0011 §16/§23; RFC-0008; RFC-0002 §2.2/§4.7 |
+| `GateDisposition`, `GateRefusal`, `SkillActionUnit`, `SkillGate`, `admit` | `skills/runtime.py` | RFC-0011 §12/§13/§14/§24; RFC-0008 §5 |
+
+Each type is defined in exactly one module; no type is re-defined or shared
+across modules (RFC-0004 §3 one-owner rule; design review §4). The `schema`
+`Action`/`Plan`/`Proposal`/`Step`/`PostCondition`, the `context` `ProviderView`,
+the `policy` `RiskClass`, and the `collectors` `CollectorSpec` types are
+consumed as values and never re-declared.
+
+### Public surface map
+
+| Module | Public surface (`__all__`) |
+|---|---|
+| `providers/contract.py` | `ProviderOutputKind`, `ValidationDisposition`, `ValidationRefusal`, `Explanation`, `Questions`, `Clarifications`, `AlternativePlans`, `Refusal`, `Failure`, `NeedMoreEvidence`, `ValidationOutcome`, `validate` |
+| `providers/view.py` | `ProviderCapability`, `ProviderStage`, `ProviderFailure`, `ProviderEvent`, `ConsumptionDisposition`, `ConsumptionRefusal`, `LifecycleDisposition`, `LifecycleRefusal`, `RequestKind`, `CapabilityDeclaration`, `ProviderLifecycle`, `Consumption`, `LifecycleOutcome`, `Negotiation`, `consume`, `declare`, `register`, `activate`, `remove`, `negotiate`, `classify` |
+| `skills/loader.py` | `AuthenticationVerdict`, `LoadDisposition`, `LoadOutcome`, `LoadRefusal`, `PolicyVerdict`, `Skill`, `SkillCapability`, `SkillDependency`, `SkillManifest`, `SkillStage`, `load` |
+| `skills/activation.py` | `Activation`, `ActivationEvent`, `ActivationOutcome`, `ActivationRefusal`, `ActivationRequest`, `ActivationStage`, `ActivationVerdict`, `activate`, `deactivate` |
+| `skills/runtime.py` | `GateDisposition`, `GateRefusal`, `SkillActionUnit`, `SkillGate`, `admit` |
+
+The facades (`providers/__init__.py`, `skills/__init__.py`, `adapters/__init__.py`)
+re-export nothing and leak no internal placeholder (design review §6). `providers`
+holds **Propose** (contract validation) and **Infer** (capability/lifecycle
+mechanics) only; `skills` holds **Propose** (load/activate/gate) only
+(RFC-0004 §7); neither package ever decides, approves, executes, verifies, or
+creates a Fact (RFC-0010 §2; RFC-0011 §4; PR1–PR16; SK1–SK16).
+
+### Layer-5 conformance summary
+
+Verified by the AST-conformance sections inside each provider/skill test module
+(mirroring the trust/secrets/policy/executor/audit/context precedent) and by
+`tests/test_dependency_rules.py` + `tests/test_packages.py`:
+
+- **Imports.** `providers` imports only stdlib + `schema`/`context` (`contract.py`:
+  `schema.action`; `view.py`: `context.provider_view`); `skills` imports only
+  stdlib + `schema`/`collectors`/`policy`/`factlayer`-types (`loader.py`:
+  `collectors.registry`, `policy.classify`; `activation.py`/`runtime.py`:
+  `skills.loader`, `schema.action`). The `providers → trust`/`skills → trust`
+  declared edges stay **latent** (DN-44 precedent); `skills → policy`/
+  `skills → collectors` are restricted to **types only** (blueprint §4.2
+  "policy (decision)" / "factlayer (create)" use limits).
+- **No forbidden imports.** No higher-layer or authority-bearing package
+  (`executor`, `verification`, `audit`, `secrets`, `core`, `cli`) and no
+  `providers ↔ skills` edge (DN-82); no I/O-, concurrency-, clock-,
+  persistence-, randomness-, or crypto-capable stdlib (no `os`, `pathlib`,
+  `json`, `sqlite3`, `threading`, `asyncio`, `socket`, `subprocess`, `secrets`,
+  `random`, `hashlib`, …).
+- **No dependency-edge violations.** `test_dependency_rules.py` green; the
+  declared and observed import graphs are acyclic (`providers` → `context` →
+  …; `skills` → `schema`/`collectors`/`policy` → … → stdlib).
+- **No forbidden runtime logic.** No top-level control flow; module-level code
+  builds only constant data (enums, the `_ADMITTED_REASON` text); no I/O,
+  clocks, randomness, persistence, or provider calls anywhere; time is
+  caller-supplied and nothing reads a clock (determinism; RFC-0007 S7).
+- **Frozen + slots.** Every public dataclass (`ValidationOutcome`,
+  `Explanation`, `Questions`, `Clarifications`, `AlternativePlans`, `Refusal`,
+  `Failure`, `NeedMoreEvidence`, `CapabilityDeclaration`, `ProviderLifecycle`,
+  `Consumption`, `LifecycleOutcome`, `Negotiation`, `SkillManifest`, `Skill`,
+  `LoadOutcome`, `ActivationRequest`, `ActivationOutcome`, `Activation`,
+  `SkillActionUnit`, `SkillGate`, …) is frozen and slot-based (DN-34
+  precedent).
+- **No ownership overlap / no placeholder leaks.** `__all__` equals the
+  ownership map per module; names unique across modules; no underscore-prefixed
+  name exported; the facades re-export nothing.
+- **Package tree unchanged.** The `providers/{__init__,contract,view,adapters}.py`
+  and `skills/{__init__,loader,activation,runtime}.py` files match blueprint §2
+  exactly (`test_packages.py`); Layer 0 never imports either package.
+- **No vendor surface leaks (PR10/PR15).** `providers` is the sole
+  vendor-facing surface; a vendor-scan test proves no vendor name or branch
+  appears anywhere else (`test_no_capability_leaks_a_vendor_name`).
+- **No secret value crosses either boundary (SC3/SC5).** A known token fed at
+  the View-consumption, Skill-loading, and gate boundaries appears nowhere in a
+  consumed View, a loaded Skill, an activation, or a unit declaration
+  (`test_consume_refuses_audit_and_secret_shaped_values`,
+  `test_loading_does_not_register_a_secret_shaped_value`,
+  `test_secret_shaped_values_never_reach_an_activation`,
+  `test_secret_shaped_values_stay_out_of_the_declaration`).
+- **No authority.** No decision, approval, or truth path (PR2/PR3/PR6; SK7);
+  no token/permit/grant/verdict field on any owned carrier; the packages never
+  widen a grant and never execute (PR1; RFC-0002 invariant 3).
+
+### PR/SK invariant coverage table
+
+The blueprint §8.10 overall DoD (PR11, PR14, F6, SK4, SK5, SC5) and the
+layer-enforceable halves of PR1–PR16 / SK1–SK16 are each asserted by a direct
+test; the runtime-owned halves are recorded against `core` below:
+
+| Invariant | What is verified |
+|---|---|
+| PR11 | Malformed, uniterable, and unexpected inputs degrade to a disclosed rejection, never an exception (`test_unexpected_inputs_degrade_never_crash`, `test_uniterable_alternatives_degrade_not_crash`, `test_a_malformed_value_yields_no_result_and_never_raises`) |
+| PR14 | `consume()` admits exactly the `context`-built `ProviderView` type; an Audit record, a secret-shaped value, raw output, or a provider identity is refused — the View is the only channel (RFC-0002 I-4) |
+| F6 | No validation output is a Fact and no carrier has a Fact/authority field; nothing is interpreted into truth (`test_no_carrier_carries_a_fact_or_authority_field`) |
+| PR13 | A value that is none of the finite §4 outputs yields no result and is never coerced into validity; an incomplete Proposal/Alternative is rejected (`test_a_malformed_value_yields_no_result_and_never_raises`, `test_a_proposal_without_an_expected_effect_is_rejected_as_incomplete`, `test_an_alternative_plan_whose_alternative_is_incomplete_is_rejected`) |
+| PR16 | `classify` is total and honest: every §8 failure maps to a §4.3 event; no recommendation is fabricated (`test_classify_never_fabricates_a_recommendation`) |
+| PR2/PR3/PR6 | No output is an instruction or authority/verdict; no owned carrier grants an action or a decision method (`test_no_owned_carrier_grants_authority_or_an_action`, `test_validation_never_creates_authority`) |
+| PR12 | Capability declarations grant nothing; the §5 vocabulary names abilities, not authorities/actions (`test_no_capability_names_an_authority_or_action`) |
+| PR1 | Nothing executes; no command/execute surface exists on any owned carrier (RFC-0010 §2) |
+| SK4 | Every Skill Action passes the exact same gate as any Action; a Skill or a whole Plan is never admitted as a unit, no unit approval (`test_a_skills_plan_is_never_admitted_as_a_unit`, `test_units_carry_no_approval_token_or_authority`) |
+| SK5 | An unauthenticated/failed-verifier Skill is refused with no durable artifact; a missing or refused Policy decision fails closed (`test_unauthenticated_verdict_refuses_the_load`, `test_missing_verifier_fails_closed_as_unauthenticated`, `test_unauthenticated_load_substitutes_nothing`) |
+| SK6 | The verification approach is carried as a declaration only, never performed (`test_the_verification_approach_is_declared_never_performed`, `test_no_unit_carries_a_verification_verdict`) |
+| SK11 | Declared Preconditions and Postconditions ride every Action/unit; an Action or Step without its expected effect is refused INCOMPLETE_EFFECT (`test_declared_preconditions_ride_the_unit`, `test_an_action_without_expected_postconditions_is_incomplete`, `test_a_plan_step_without_an_expected_effect_is_incomplete`) |
+| SK12 | The declared Preconditions are attached and cannot be replaced or waived by the offering (`test_the_offering_cannot_replace_the_declared_preconditions`) |
+| SK15/SK8 | Activation is per-session and reversible, never substitutes an unauthenticated Skill, and grants no authority (`test_activation_is_reversible`, `test_substituting_a_different_skill_for_a_bound_session_is_refused`, `test_activation_grants_no_authority`) |
+| SC3 | A secret-shaped value never crosses into a Provider View; `consume` refuses it (`test_consume_refuses_audit_and_secret_shaped_values`) |
+| SC5 | A secret-shaped value never reaches a Skill or a unit's declaration (`test_loading_does_not_register_a_secret_shaped_value`, `test_secret_shaped_values_never_reach_an_activation`, `test_secret_shaped_values_stay_out_of_the_declaration`) |
+| SK13 | Skill material/code never enters an LLM path at this layer: no carrier exposes a code/command surface, and the code-never-in-LLM-path wiring is `core`'s (Iteration 11), asserted here as no `providers`/LLM edge (DN-82) |
+| SK7/SK14 | No Skill content modifies Policy or Audit: no `policy` decision path and no `audit` import anywhere in `skills` (AST conformance; forbidden set) |
+
+### Dependency verification
+
+- `tests/test_dependency_rules.py` green: `providers` imports only within
+  `ALLOWED["providers"] = {"schema", "trust", "context"}`; `skills` imports
+  only within `ALLOWED["skills"] = {"schema", "collectors", "trust", "policy",
+  "factlayer"}`; the forbidden sets `FORBIDDEN["providers"] = {"factlayer",
+  "executor", "policy", "verification", "audit", "secrets"}` and
+  `FORBIDDEN["skills"] = {"executor", "verification", "audit", "secrets"}`
+  hold; the use-restriction qualifiers (skills imports `policy`/`factlayer`
+  types only) are enforced; the forbidden `skills → providers` and
+  `providers → skills` edges are absent (DN-82); graphs acyclic.
+- `tests/test_packages.py` green: tree matches blueprint §2 exactly.
+- Enforced additionally by the AST-conformance sections inside each provider/
+  skill test module: the exact ratified import set per module, forbidden
+  packages and stdlib, no clock/randomness, no provider/vendor call, no
+  top-level runtime logic, public surface == owned vocabulary.
+
+### Ownership verification
+
+- One owner per name: each `__all__` name is defined by exactly one module; no
+  type is re-declared; the `schema`/`context`/`policy`/`collectors` types are
+  consumed as values (RFC-0004 §3).
+- **No authority overlap.** `providers` holds Propose + Infer only (contract
+  validation, capability/lifecycle mechanics); `skills` holds Propose only
+  (load/activate/gate participation). Neither holds a decision cell, an
+  approval token, a verification verdict, an Audit record, or an execution
+  surface (PR1–PR16; SK1–SK16; RFC-0010 §2; RFC-0011 §4).
+- The runtime-owned halves are owned elsewhere and recorded, never implemented
+  here: the consultation wiring and session scope, the gate routing of
+  provider- and Skill-originated Proposals, the audit writes, the failure
+  reaction, and the provider-world/machine-world separation are `core`'s
+  (Iteration 11); selection/fallback and skill enablement are RFC-0016's;
+  packaging/signing and sandboxing are RFC-0017/RFC-0020's.
+
+### Remaining deferred items
+
+Recorded only; nothing is invented. Each belongs to a later iteration or RFC
+and names its §1.2 owner (design review §1.2):
+
+| Deferred item | Owning future iteration / RFC |
+|---|---|
+| The consultation wiring — when Diagnosis/Planning/Replanning consult a Provider, and when Diagnosis/Planning/Machine Inspection consult a Skill, each after a fresh Context Building | RFC-0002 §5/§6 `core` (Iteration 11) |
+| Provider selection, preference order, fallback chains, profiles, and cost controls | RFC-0016 (Post-MVP); RFC-0010 §15 OQ1/OQ4 |
+| The provider-failure reaction: retry with backoff, fallback chain, degraded mode → Awaiting Input (facts-only) | RFC-0002 §10; RFC-0010 §8 |
+| The routing of provider-originated and Skill-originated Proposals into the Policy/Approval gate and the Executor | RFC-0008 §5; RFC-0004 A3 `core` (Iteration 11) |
+| The audit writes of provider/skill events (loading, activation, execution, failure, trust revocation) | RFC-0013 §23; RFC-0002 invariant 13 `core` (Iteration 11) |
+| The first vendor adapter (HTTP/SDK translation), the packaging format, the signing scheme, and the version encoding | RFC-0020; RFC-0017; RFC-0010 §15 OQ6; RFC-0011 §19/§30 OQ1 |
+| Skill sandboxing mechanics (isolated environments, capability declarations, or both) | RFC-0020; RFC-0011 §17/§30 OQ2 |
+| The skill review process and trust ratings (declared vs. actual risk) | The skill ecosystem work, post-MVP (RFC-0000 §5); RFC-0001 Q20/Q22 |
+| The skill registry/distribution, marketplace, and fetching under default-deny | The ecosystem work; RFC-0001 Q23 |
+| Skill enablement/preference configuration and cost controls | RFC-0016; RFC-0011 §30 OQ6 |
+| Cross-version migration across skill/fact-model/provider contracts | RFC-0017; RFC-0011 §30 OQ7 |
+| The RFC-0010 §17 / RFC-0011 §32 vocabulary additions to RFC-0003 Part I | RFC-0003 Part II amendment (docs change) |
+
+### Completion verdict
+
+- Iteration 10 implementation is **complete**.
+- **Layer-5 Definition of Done is satisfied** (design review §14 overall DoD):
+  PR11, PR14, F6 (providers) and SK4, SK5, SC5 (skills) all pass at the layer's
+  own surface, as do the layer-enforceable halves of PR1–PR16 and SK1–SK16;
+  the cross-component obligations (consultation wiring, gate routing, audit
+  writes, selection/fallback, packaging/signing, sandboxing) are recorded
+  against `core`/RFC-0016/RFC-0017/RFC-0020 exactly as ratified.
+- **C0–C6 are complete.** The layer is complete per the blueprint and the
+  design review; the five modules (`contract.py` + `view.py` + `loader.py` +
+  `activation.py` + `runtime.py`) are each deterministic, pure, I/O-free, and
+  authority-free; `adapters/` remains a scaffold.
+- Full suite: **2530 tests pass** (2285 baseline + 245 new across the five new
+  test modules); ruff, format, build, and pre-commit are clean. Working tree is
+  clean after C6 (only the pre-existing untracked `HANDOFF.md` remains).
+
+### Readiness for Iteration 11
+
+- The next iteration is **`core`** (Layer 6; blueprint §8.11, re-ordered by
+  DN-45), followed by `cli`. `core` inherits the recorded obligations of this
+  layer and of Iterations 8–9: the consultation wiring (RFC-0002 §5/§6), the
+  gate routing of provider- and Skill-originated Proposals (RFC-0008 §5), the
+  provider-failure reaction (RFC-0002 §10), the audit writes of provider/skill
+  and context events (RFC-0013 §23), and the provider-world/machine-world
+  separation (RFC-0002 §1).
+- The provider/skill runtime wiring, the Context Building state machine, and
+  the state-transition emission are `core`'s; the `providers` and `skills`
+  packages are complete, conformance-enforced, and I/O-free, ready for `core`
+  to consume them.
+- **Ready.** Baseline 2530 green; DN-75…DN-84 are all implemented and validated
+  (no orphaned decision notes); the deferred-items table names every §1.2
+  owner; the tree and dependency edges are unchanged.
+
 ---
 
 ## Known limitation

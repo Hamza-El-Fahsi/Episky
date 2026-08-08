@@ -2441,3 +2441,21 @@ Because Iteration 10's C0 (the design-review record) was committed first, the
 ratification record in this file travels with Commit C1; the design review §16
 readiness flips to READY and Commit C1 (`contract.py`, structured-output
 validation) satisfies the design review §14 C1 DoD.
+
+### DN-75 … DN-84 completion block (Iteration 10 closeout)
+
+| Note | Status | Embodiment | Validation |
+|---|---|---|---|
+| DN-75 … DN-84 | **Implemented** | C1–C5 | corresponding suites |
+
+**Iteration 10 completion note.** All ratified Providers & Skills layer
+decisions (DN-75…DN-84) are implemented and validated: the full suite is green
+(2530 tests, 2285 baseline + 245 new), the Layer-5 per-module conformance and
+boundary suites (`test_providers_contract.py`, `test_providers_view.py`,
+`test_skills_loader.py`, `test_skills_activation.py`, `test_skills_runtime.py`
+plus the cross-cutting `tests/test_dependency_rules.py` and
+`tests/test_packages.py`) enforce the ratified readings, and the next iteration
+is the `core` layer (blueprint §8.11, re-ordered by DN-45 to Iteration 11) that
+owns the runtime wiring recorded as deferred in the consistency report
+(consultation, gate routing, audit writes, failure reaction, provider-world/
+machine-world separation). No new decision note is required for this closeout.
