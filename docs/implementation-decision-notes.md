@@ -2149,3 +2149,295 @@ iteration is the `providers` + `skills` layer (blueprint §8.10, re-ordered by
 DN-45 to Iteration 10) that owns the runtime `core`-side wiring recorded as
 deferred in the consistency report. No new decision note is required for this
 closeout.
+
+---
+
+## Iteration 10 ratification — Providers & Skills layer (RFC-0010; RFC-0011)
+
+This section ratifies the ten blocking questions Q1–Q10 of
+`docs/iteration-10-design-review.md` §10 as **DN-75…DN-84**, exactly as
+Iterations 1–9 ratified theirs before C0. Each question resolves an
+implementation interpretation that the frozen corpus leaves open; no question
+requires an RFC amendment, a `schema`/`systemmodel`/`trust`/`factlayer`/
+`verification`/`secrets`/`policy`/`executor`/`audit` change, a new module (the
+five `providers`/`skills` modules are already scaffolded per blueprint §2), or
+a new dependency edge beyond the declared `providers → {schema, trust, context}`
+and `skills → {schema, collectors, trust, policy, factlayer}` sets (blueprint
+§4.1/§4.2). RFC-0010 and RFC-0011 are Draft; the layer conforms to their
+wording knowingly, accepting the rework risk a Draft change carries, exactly as
+Iterations 1–9 conformed to the Draft sections they translated. The grounding
+RFCs cited below are Accepted where marked; RFC-0012, RFC-0013, and RFC-0021
+are Draft.
+
+## DN-75 — Iteration 10 executes the `providers` + `skills` layer; the blueprint §8.10 numbering is superseded by DN-45's re-order
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 10 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q1 |
+| Grounding | DN-45 (re-order: `policy` = Iteration 7, `executor` + `audit` = Iteration 8, `context` = Iteration 9, `providers` + `skills` = Iteration 10, `core` = Iteration 11); blueprint §8.10 (the `providers` + `skills` iteration, original numbering "Iteration 9"); Iteration 9 closeout (consistency report "Readiness for Iteration 10": "The next iteration is the `providers` + `skills` layer (blueprint §8.10, re-ordered by DN-45 to Iteration 10)") |
+| Embodied in | Iteration 10 implementation plan (C0, docs-ratification) |
+
+**Decision.** Iteration 10 executes as the **Providers & Skills layer
+(`providers` + `skills`)** (RFC-0010; RFC-0011; blueprint §8.10, re-ordered by
+DN-45 to follow `context`). The blueprint §8.10 numbering is **superseded by
+DN-45's re-order**: the layer is Iteration 10, not the §8.10 label's "Iteration
+9". The blueprint text itself is **left unchanged** — the renumbering is
+recorded here and in the consistency report as a reported tension, and the
+blueprint stands until RFC-0020 (the authoritative build order). The re-order
+is dependency-safe: `providers` (Layer 5, imports `context`) and `skills`
+(Layer 5) precede `core`/`cli` (Layers 6–7), preserving the safety spine and
+blueprint Risk #9's mitigation (secrets, Layer 2, precedes context and
+providers). No architecture is added; the §8.10 DoD (PR11, PR14, F6; SK4, SK5,
+SC5) and the blueprint §7 oracle rows (PR1–PR16; SK1–SK16) are the conformance
+oracle.
+
+**Effect.** The Iteration 10 plan in `docs/iteration-10-design-review.md`
+§12–§14 is ratified; the blueprint §8.10 label stays recorded as a reported
+tension until RFC-0020.
+
+## DN-76 — `contract.py` validates the finite RFC-0010 §4 structured outputs now; the per-vendor adapters are RFC-0020's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 10 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q2 |
+| Grounding | RFC-0010 §0 (architecture only: "no HTTP, no REST, no SDKs, no vendor APIs, no JSON schemas, no implementation"), §4 (the finite structured outputs; rule 2, a Proposal carries its expected effect; "The Core validates the result against the contract; anything that does not conform is malformed"), §8 (malformed output rejected, never interpreted, PR13), §13 PR11 (provider failure never crashes), §15 OQ6 (the adapter implementation is RFC-0020's); RFC-0008 §5 (the gate's input is the Proposal; an incomplete Proposal is rejected; the expected Post-condition); DN-1 (final signatures are RFC-0020's); blueprint §8.10 DoD (PR11, PR13, F6) |
+| Embodied in | Iteration 10 implementation plan, Commit C1 |
+
+**Decision.** `contract.py` implements the **structured-output validation
+mechanics now**: the finite RFC-0010 §4 outputs (Proposal, Explanation,
+Questions, Clarifications, Alternative Plans, Refusal, Failure, Need More
+Evidence) as deterministic validators over the `schema` types, with the
+**expected-effect rule** (a Proposal is incomplete without its expected
+Post-condition → rejected; RFC-0010 §4 rule 2, RFC-0008 §5, PR13) — never
+interpreted into validity (PR13), never a Fact (F6), never authority
+(PR2/PR3/PR6), never executed (PR1), degrading never crashing (PR11). The
+**per-vendor adapters are RFC-0020's** (RFC-0010 §15 OQ6) and `adapters/` stays
+a scaffold (DN-1). No architecture is added; the finite output set is RFC-0010
+§4's and the expected-effect rule RFC-0008 §5's.
+
+**Effect.** PR13/PR11/F6 and the expected-effect rule are testable at
+`contract.py` now; the vendor-facing translation stays with RFC-0020.
+
+## DN-77 — `view.py` implements the lifecycle mechanics and the capability vocabulary now; selection and fallback are RFC-0016's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 10 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q3 |
+| Grounding | RFC-0010 §5 (the capability model; "no capability implies permission", §5.4, PR12), §6 (the deterministic negotiation adaptation), §7 (the provider lifecycle: registration, activation, removal), §9/§15 OQ1 (provider selection, profiles, and wiring are RFC-0016's, Post-MVP); RFC-0002 §5/§6 (the consultation use is the runtime's); DN-1 |
+| Embodied in | Iteration 10 implementation plan, Commit C2 |
+
+**Decision.** `view.py` implements the §7 **lifecycle mechanics now** —
+registration (the capability declaration stored as facts), activation
+(usable-check), and removal — plus the §5 capability vocabulary and the
+deterministic §6 negotiation adaptation. Provider **selection, profiles,
+fallback chains, and cost controls are RFC-0016's** (RFC-0010 §15 OQ1) and the
+consultation use is `core`'s (RFC-0002 §5/§6). No architecture is added; the
+capability model is RFC-0010 §5's and the lifecycle §7's.
+
+**Effect.** §5/§7 mechanics are testable at `view.py` now; selection/fallback
+is recorded against RFC-0016 and the consultation use against `core`.
+
+## DN-78 — The provider package validates and returns contract-shaped §4 outputs; routing to the deterministic consumers is `core`'s
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 10 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q4 |
+| Grounding | RFC-0010 §4 ("The Core validates the result against the contract" and routes each output to its deterministic consumer, rule 3), §8 (malformed rejected, never interpreted, PR13); RFC-0008 §5 (the gate's input is the Proposal); RFC-0002 §6 (component consultation rules: each output reaches its consumer through the runtime) |
+| Embodied in | Iteration 10 implementation plan, Commit C1 |
+
+**Decision.** The provider package **validates and returns contract-shaped §4
+results**; routing each output to its deterministic consumer (classification,
+Planning, Awaiting Input) is **`core`'s** (RFC-0002 §6); nothing is interpreted
+into validity here (PR13). No architecture is added; the validation half is
+RFC-0010 §4's and the routing half RFC-0002 §6's.
+
+**Effect.** PR13 is testable at the package now; the routing wiring is recorded
+against `core` (Iteration 11).
+
+## DN-79 — The provider package classifies the §8 failure modes into the §4.3 events deterministically; the recovery reaction is `core`'s
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 10 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q5 |
+| Grounding | RFC-0010 §8 (the seven failure modes; "never interpret it into validity"; PR11), §13 PR11/PR16; RFC-0002 §4.3 (the provider-event vocabulary: PROVIDER_RESPONSE/REFUSAL/UNAVAILABLE/TIMEOUT/FALLBACK_OK/FALLBACK_FAILED), §10 (the recovery order: retry with backoff → fallback chain → degraded mode); RFC-0002 Q3 (bounded retry) |
+| Embodied in | Iteration 10 implementation plan, Commit C2 |
+
+**Decision.** The provider package translates the §8 failure modes into the
+RFC-0002 §4.3 event vocabulary **deterministically** (Timeout →
+PROVIDER_TIMEOUT, unavailable → PROVIDER_UNAVAILABLE, malformed →
+PROVIDER_REFUSAL, and so on; PR11/PR16). **Retry with backoff, the fallback
+chain, and degraded mode are `core`'s** (RFC-0002 §10), and provider selection
+is RFC-0016's. No architecture is added; the classification is RFC-0010 §8's
+and the reaction RFC-0002 §10's.
+
+**Effect.** PR11/PR16 are testable as the failure→event classification now; the
+reaction is recorded against `core` (Iteration 11).
+
+## DN-80 — `loader.py` is the Skill Registry's load-and-authenticate boundary; the packaging and signing scheme is RFC-0017/RFC-0020's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 10 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q6 |
+| Grounding | RFC-0011 §3 (the Skill Registry's authentication role), §22 (the load steps: read the declared surface, authenticate signature and provenance, validate the declaration, check Policy before activation, register), §19 (version and signature carried on the manifest), §30 OQ1 (the concrete packaging/signing scheme is RFC-0017/RFC-0020's); RFC-0002 §4.7 (an unauthenticated Skill is refused, never substituted; SKILL_UNAVAILABLE); RFC-0001 §11.2 (the Core enumerates what is registered); blueprint §2 (no `registry` module in the scaffolded `skills` package) |
+| Embodied in | Iteration 10 implementation plan, Commit C3 |
+
+**Decision.** `loader.py` plays the **Skill Registry's load-and-authenticate
+boundary now** — read the declared surface, authenticate signature and
+provenance (an unauthenticated Skill is never loaded, RFC-0002 §4.7; SK5),
+validate the declaration (targets, privileges, risk, capabilities,
+dependencies, Pre/Postconditions, verification approach), check Policy before
+activation (RFC-0008), register with the Core — with no side effects and no LLM
+judgment (RFC-0011 §22). The version and signature ride the manifest now; the
+concrete packaging/signing scheme is RFC-0017/RFC-0020's (§19/§30 OQ1). No
+architecture is added.
+
+**Effect.** SK5/SK15 and RFC-0011 §22 are testable at the loader now; the
+packaging/signing mechanics stay recorded against RFC-0017/RFC-0020.
+
+## DN-81 — `activation.py` implements the per-session, reversible, Policy-gated, audited lifecycle; the consultation and session scope are `core`'s
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 10 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q7 |
+| Grounding | RFC-0011 §23 (activation: per-session, reversible, Policy-gated, audited; grants no authority; unauthenticated never substituted), §24 (Skill Actions pass the exact same gate; no unit approval), §25/§13 (verification is never the Skill's, SK6; declared Pre/Postconditions, SK11/SK12); RFC-0002 §6/§2.2 (the consultation of a Skill in Diagnosis/Planning/Machine Inspection and the session scope are the runtime's); RFC-0008 §5 (gate participation; incomplete Proposals rejected) |
+| Embodied in | Iteration 10 implementation plan, Commits C3/C4 |
+
+**Decision.** `activation.py` implements the §23 lifecycle mechanics now
+(per-session, reversible, Policy-gated, audited-event emitting, no
+unauthenticated substitution, no authority grant); `runtime.py` implements §24
+**gate participation** (SK4, no unit approval, no skill-based shortcut; declared
+Preconditions and Postconditions ride the Action, SK11/SK12; verification never
+the Skill's, SK6). The consultation/invocation (Diagnosis/Planning/Machine
+Inspection) and the session scope are `core`'s (RFC-0002 §6/§2.2). No
+architecture is added.
+
+**Effect.** SK4/SK11/SK12 are testable at the gate-surface mechanics now; the
+consultation wiring is recorded against `core` (Iteration 11).
+
+## DN-82 — RFC-0011 §20's provider↔skill interaction is `core`'s obligation with no direct package edge
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 10 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q8 (and RFC-0010 §15 OQ5) |
+| Grounding | RFC-0011 §20 (a Skill consumes the Provider Contract, never a vendor; a deterministic Skill needs no Provider; Skill code never enters the LLM path except sanitized; no bidirectional trust), §13/SK13 (Skill content never enters the View/LLM path unsanitized); RFC-0010 §15 OQ5 (skill-provider interaction is RFC-0011's); RFC-0001 §11.2 (the two extension axes); blueprint §4.1 (no `providers ↔ skills` edge; `providers` allowed = {schema, trust, context}, `skills` allowed = {schema, collectors, trust, policy, factlayer}) |
+| Embodied in | Iteration 10 implementation plan, Commit C4 (recorded obligation) |
+
+**Decision.** RFC-0011 §20's provider↔skill interaction is realized as **`core`'s
+obligation** through `schema`/`context`, never by an import: a Skill consumes
+the Provider Contract, never a vendor; deterministic Skills run without a
+Provider in degraded mode; Skill code never enters the LLM path except
+sanitized (SK13). The §20 rules become boundary obligations asserted at the
+layer — SK13 sanitization asserted at the boundary, no `skills → providers`
+edge (blueprint §4.1). No architecture is added; the interaction is RFC-0011
+§20's and the wiring `core`'s.
+
+**Effect.** The forbidden-edge rule and SK13 are conformance-asserted; the
+interaction wiring is recorded against `core` (Iteration 11).
+
+## DN-83 — Both packages are I/O-free; all external surfaces are injected and belong to RFC-0020/RFC-0017
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 10 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q9 |
+| Grounding | RFC-0010 §0 (architecture only — no HTTP, no REST, no SDKs, no vendor APIs), §15 OQ6 (the adapter is RFC-0020's); RFC-0011 §17/§30 OQ2 (sandboxing mechanics are RFC-0020's); DN-1 (final signatures are RFC-0020's); DN-55 (the injected-primitive / run-primitive precedent of Iteration 8); blueprint §8.10 DoD (PR11, PR14, SK5, SC5 testable without a live vendor or a real skill fetch) |
+| Embodied in | Iteration 10 implementation plan, Commits C1–C4 |
+
+**Decision.** Neither package performs **network, subprocess, filesystem,
+vendor, or skill-fetch I/O** — everything external is injected at the boundary
+(the DN-55 run-primitive precedent); vendor calls, skill fetch, and sandbox
+execution are RFC-0020's/RFC-0017's. No architecture is added; the layer builds
+the contract and the mechanics those external surfaces must serve.
+
+**Effect.** The layer is deterministic and I/O-free (RFC-0007 S7); the absence
+of I/O is conformance-enforced.
+
+## DN-84 — The provider package is the sole vendor-facing surface (PR10/PR15), enforced by conformance; SC3/SC5 are asserted by boundary injection without a `secrets` import
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 10 ratification) |
+| Date | 2026-08-07 |
+| Resolves | design review §10 Q10 |
+| Grounding | RFC-0010 §12 (replacement changes only the adapter, PR15), §13 PR10 (the Core knows no vendor); RFC-0002 §1 (keep the provider world separate from the machine world); RFC-0009 SC3 (no secret in the Provider View), SC5 (no secret reaches a Skill); blueprint §4.2 (neither package may import `secrets`); DN-43 (the boundary-test precedent of RFC-0009 §0) |
+| Embodied in | Iteration 10 implementation plan, Commit C5 (conformance) |
+
+**Decision.** The provider package is the **sole vendor-facing surface**
+(PR10/PR15), enforced by a vendor-scan test (no vendor name or branch anywhere
+else); SC3/SC5 are asserted by **injecting secret-shaped values** at the
+View-consumption and Skill-loading boundaries and verifying none cross, with no
+`secrets` import (blueprint §4.2; DN-43). The runtime provider-world /
+machine-world separation is `core`'s (Iteration 11). No architecture is added;
+the no-secrets property is RFC-0009's, asserted by injection.
+
+**Effect.** PR10/PR15 and SC3/SC5 are testable at the layer now; the runtime
+separation is recorded against `core`.
+
+### Q1–Q10 question status
+
+| §10 Q | Subject | Status | Where resolved |
+|---|---|---|---|
+| Q1 | Iteration scope / renumbering vs blueprint §8.10 | **Ratified** | DN-75 (this file) |
+| Q2 | Provider contract surface | **Ratified** | DN-76 (this file) |
+| Q3 | Provider request lifecycle | **Ratified** | DN-77 (this file) |
+| Q4 | Provider response ownership | **Ratified** | DN-78 (this file) |
+| Q5 | Provider error handling | **Ratified** | DN-79 (this file) |
+| Q6 | Skill registry ownership | **Ratified** | DN-80 (this file) |
+| Q7 | Skill invocation boundary | **Ratified** | DN-81 (this file) |
+| Q8 | Provider↔skill interaction | **Ratified** | DN-82 (this file) |
+| Q9 | External API boundaries | **Ratified** | DN-83 (this file) |
+| Q10 | Runtime ownership / no-vendor-knowledge | **Ratified** | DN-84 (this file) |
+
+All ten §10 questions are resolved as decision notes; none requires an RFC
+amendment, a `schema`/`systemmodel`/`trust`/`factlayer`/`verification`/`secrets`/
+`policy`/`executor`/`audit` change, a new module (the five `providers`/`skills`
+modules are already scaffolded per blueprint §2), or a new dependency edge
+beyond the declared `providers → {schema, trust, context}` and
+`skills → {schema, collectors, trust, policy, factlayer}` sets (blueprint
+§4.1/§4.2). **Iteration 10 implementation is unblocked** (design review §16
+readiness). The planned commits (design review §12) will be recorded in
+`docs/implementation-consistency-report.md` (Iteration 10 section) as they land.
+
+### DN-75 … DN-84 completion status
+
+| Note | Decision | Status | Embodied in | Validated by |
+|---|---|---|---|---|
+| DN-75 | `providers` + `skills` execute at Iteration 10 per DN-45's re-order; blueprint §8.10 label superseded and stands until RFC-0020 | **Ratified** | C0 (docs-ratification) | design review §10 Q1 |
+| DN-76 | `contract.py` validates the finite RFC-0010 §4 outputs over `schema` types + the expected-effect rule (incomplete → reject, PR13); adapters RFC-0020's, `adapters/` stays a scaffold | **Ratified** | C1 (planned, `contract.py`) | pending C1 |
+| DN-77 | `view.py` implements §7 lifecycle mechanics + §5 capability vocabulary + deterministic §6 negotiation now; selection/fallback RFC-0016's, consultation `core`'s | **Ratified** | C2 (planned, `view.py`) | pending C2 |
+| DN-78 | The provider package validates and returns contract-shaped §4 outputs; routing to deterministic consumers is `core`'s; nothing interpreted into validity (PR13) | **Ratified** | C1 (planned, `contract.py`) | pending C1 |
+| DN-79 | The provider package classifies §8 failures into the §4.3 events deterministically (PR11/PR16); retry/fallback/degraded are `core`'s | **Ratified** | C2 (planned, `view.py`) | pending C2 |
+| DN-80 | `loader.py` is the Skill Registry's load-and-authenticate boundary (SK5/SK15, §22); version + signature ride the manifest, scheme RFC-0017/0020's | **Ratified** | C3 (planned, `loader.py`) | pending C3 |
+| DN-81 | `activation.py` §23 lifecycle + `runtime.py` §24 gate participation (SK4/SK11/SK12); consultation and session scope `core`'s | **Ratified** | C3/C4 (planned, `activation.py`/`runtime.py`) | pending C3/C4 |
+| DN-82 | RFC-0011 §20 provider↔skill interaction is `core`'s obligation, no direct edge (blueprint §4.1); SK13 asserted at the boundary | **Ratified** | C4 (recorded obligation) | pending C4 |
+| DN-83 | Both packages are I/O-free — no network/subprocess/filesystem/vendor/fetch I/O; everything injected (DN-55); vendor/sandbox mechanics RFC-0020/0017's | **Ratified** | C1–C4 (I/O-free mechanics) | pending C1–C4 |
+| DN-84 | The provider package is the sole vendor-facing surface (PR10/PR15) enforced by conformance; SC3/SC5 asserted by boundary injection, no `secrets` import | **Ratified** | C5 (conformance) | pending C5 |
+
+**Iteration 10 ratification note.** All ten Providers & Skills layer decisions
+(DN-75…DN-84) are ratified **before Commit C1**, the first implementation
+commit, exactly as Iterations 1–9 ratified their ten decisions before C0; none
+is yet implemented (C1–C6 remain, per design review §12). The five
+`providers`/`skills` modules are scaffolded stubs (blueprint §2) and the
+`providers` and `skills` dependency rows are already declared in
+`tests/test_dependency_rules.py`, so the tree test stays green throughout.
+Because Iteration 10's C0 (the design-review record) was committed first, the
+ratification record in this file travels with Commit C1; the design review §16
+readiness flips to READY and Commit C1 (`contract.py`, structured-output
+validation) satisfies the design review §14 C1 DoD.
