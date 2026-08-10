@@ -2459,3 +2459,279 @@ is the `core` layer (blueprint §8.11, re-ordered by DN-45 to Iteration 11) that
 owns the runtime wiring recorded as deferred in the consistency report
 (consultation, gate routing, audit writes, failure reaction, provider-world/
 machine-world separation). No new decision note is required for this closeout.
+
+---
+
+## Iteration 11 ratification — Orchestration Core layer (RFC-0002; RFC-0004)
+
+This section ratifies the ten blocking questions Q1–Q10 of
+`docs/iteration-11-design-review.md` §10 as **DN-85…DN-94**, exactly as
+Iterations 1–10 ratified theirs before C0. Each question resolves an
+implementation interpretation that the frozen corpus leaves open; no question
+requires an RFC amendment, a `schema`/`systemmodel`/`trust`/`factlayer`/
+`verification`/`secrets`/`policy`/`executor`/`audit` change, a new module (the
+seven `core` modules are already scaffolded per blueprint §2), or a new
+dependency edge beyond the declared `core → {all packages}` set with `cli` the
+only importer (blueprint §4.1/§4.2). RFC-0005 through RFC-0013 and RFC-0021
+are Draft; the layer conforms to their wording knowingly, accepting the rework
+risk a Draft change carries, exactly as Iterations 1–10 conformed to the Draft
+sections they translated. The grounding RFCs cited below are Accepted where
+marked; RFC-0008, RFC-0013, and RFC-0021 are Draft.
+
+## DN-85 — Iteration 11 executes the `core` layer; the blueprint §8.11 numbering is superseded by DN-45's re-order
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 11 ratification) |
+| Date | 2026-08-10 |
+| Resolves | design review §10 Q1 |
+| Grounding | DN-45 (re-order: `policy` = Iteration 7, `executor` + `audit` = Iteration 8, `context` = Iteration 9, `providers` + `skills` = Iteration 10, `core` = Iteration 11); blueprint §8.11 (the `core` iteration, original numbering "Iteration 10"); Iteration 10 closeout (consistency report "Readiness for Iteration 11": "The next iteration is `core` (Layer 6; blueprint §8.11, re-ordered by DN-45), followed by `cli`") |
+| Embodied in | Iteration 11 implementation plan (docs-ratification commit C0) |
+
+**Decision.** Iteration 11 executes as the **Orchestration Core layer (`core`
+only)** (RFC-0002; RFC-0004; blueprint §8.11, re-ordered by DN-45 to follow
+`providers` + `skills`). The blueprint §8.11 numbering is **superseded by
+DN-45's re-order**: `core` is Iteration 11, not the §8.11 label's "Iteration
+10". The blueprint text itself is **left unchanged** — the renumbering is
+recorded here and in the consistency report as a reported tension, and the
+blueprint stands until RFC-0020 (the authoritative build order). The re-order
+is dependency-safe: `core` (Layer 6) imports all lower layers (blueprint §4.1)
+and is imported only by `cli` (Layer 7), preserving the safety spine. No
+architecture is added; the §8.11 DoD (state-machine conformance, invariants
+1–15, recovery ordering determinism→disclosure→decision→action) and the
+blueprint §7 oracle rows (RFC-0002 §1–§10) are the conformance oracle.
+
+**Effect.** The Iteration 11 plan in `docs/iteration-11-design-review.md`
+§12–§14 is ratified; the blueprint §8.11 label stays recorded as a reported
+tension until RFC-0020.
+
+## DN-86 — The reachable transition set is exactly the §2.1–§2.15 "Allowed transitions" lists plus the §3 shortcut edges and the §2.9 next-step edge; the diagram defers to §§2/4
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 11 ratification) |
+| Date | 2026-08-10 |
+| Resolves | design review §10 Q2 |
+| Grounding | RFC-0002 §0 ("the drawing is ambiguous, the written definitions in §2 and the event rules in §4 win"), §2.1–§2.15 (each state's Allowed transitions), §3 (the state-machine diagram, normative only where it matches §§2/4), §2.9 (Verification "Passed, but approved steps remain → Executing (the next step)"), §4 (the events that move between states) |
+| Embodied in | Iteration 11 implementation plan, Commit C1 (`state_machine.py`) |
+
+**Decision.** The conformance transition set is exactly: (a) the §2.1–§2.15
+**"Allowed transitions"** lists; (b) the **§3 shortcut edges** (OP_CANCEL →
+Cancelled from any active state; OP_INTERRUPT → Interrupted / second press →
+END; ACTION_TIMEOUT / ACTION_INTERRUPTED → Interrupted; provider loss with no
+fallback → degraded mode → Awaiting Input; approved REBOOT → write resume
+marker → END; STATE_CHANGED_DETECTED → invalidate facts → Machine Inspection);
+(c) the §2.9 **Verification → Executing (next approved step)** edge. Nothing
+else is reachable; any other transition is refused. The diagram defers to §§2/4
+where it is ambiguous or drawn-only. No architecture is added.
+
+**Effect.** The reachable set is a testable, closed oracle for
+`test_core_state_machine` (the impossible-transition table of the walkthrough
+§6.1); any invented move fails conformance.
+
+## DN-87 — All §4.1–§4.7 events exist as typed events; the informational ones (OP_VIEW, ACTION_STARTED, ACTION_CLASSIFIED) are audited notes with no state change
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 11 ratification) |
+| Date | 2026-08-10 |
+| Resolves | design review §10 Q3 |
+| Grounding | RFC-0002 §4.1 (OP_VIEW "informational only … no state change"), §4.5 (ACTION_STARTED "internal; audited"), §4.4 (ACTION_CLASSIFIED — the classification event), §4.1–§4.7 (the full event vocabulary), §6 (the Audit is "written at every consequential boundary"); RFC-0013 §23 (the write points are runtime boundaries, before the consequence); RFC-0002 I-13 (audit written before the consequence) |
+| Embodied in | Iteration 11 implementation plan, Commit C1 (`events.py`) |
+
+**Decision.** The full §4.1–§4.7 event catalog exists as typed events with a
+per-event dispatch (event → transition relation declared once). The
+transition-less, information-only events — **OP_VIEW, ACTION_STARTED,
+ACTION_CLASSIFIED** — emit audited notes and change no state; every
+consequential event is audited before its effect (I-13). No architecture is
+added; the catalog is RFC-0002 §4's.
+
+**Effect.** Q3's uniform-type-set reading is testable at `events.py` now; the
+informational events' no-state-change property is conformance-asserted.
+
+## DN-88 — `core` is the single runtime writer at every boundary, invoking `audit` before the consequence, metadata-only, fail-closed (AU8)
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 11 ratification) |
+| Date | 2026-08-10 |
+| Resolves | design review §10 Q4 |
+| Grounding | RFC-0013 §23 (the write points are runtime boundaries — goal adoption, proposal, classification, approval, override, execution start/end, verification, outcome — all audited before their consequences), §7 cat. 9 (context-boundary records: "material entered Context or Memory, never the material itself"), §21 (AU8: a failed write blocks and is disclosed); RFC-0002 §6 (the Audit is written before the consequence is allowed to proceed), §9 I-13; DN-70 (the `context` package emits deterministic boundary events; `core` writes them as RFC-0013 §7 cat. 9 records before use (I-13)) |
+| Embodied in | Iteration 11 implementation plan, Commits C3/C5 (`loop.py` + `consultation.py`; the C5 boundary suites) |
+
+**Decision.** `core` — the session owner — is the **single runtime writer at
+every boundary**: the lower packages emit deterministic boundary events and
+never write; `core` invokes `audit` before the consequence, metadata-only
+(SC4), fail-closed (AU8; a failed write blocks the consequence and is
+disclosed). This satisfies the recorded Iteration-9 obligation that the cat-9
+context-boundary write is `core`'s (DN-70). No architecture is added; the write
+points are RFC-0013 §23's and the writer placement RFC-0002 §6's.
+
+**Effect.** I-13 and the cat-9 write are testable at `core` now; the lower
+packages' never-write property is preserved.
+
+## DN-89 — At the Awaiting Approval → Executing edge the token is re-validated against its declared preconditions and the injected current machine state plus current policy (P9; I-11)
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 11 ratification) |
+| Date | 2026-08-10 |
+| Resolves | design review §10 Q5 |
+| Grounding | RFC-0002 §6 (the Approval & Policy Engine is consulted at the Awaiting Approval → Executing edge — "the token is re-validated against current policy, elevation, and machine state (the approval-to-execution gap is the classic time-of-check/time-of-use hazard)"), §2.8 (Executing runs the approved action under a re-validated token); RFC-0008 §8 (the Approval Token is the only thing that carries permission; scoped, consumable, never reused), §10 (independent enforcement at the boundary); RFC-0002 I-11 (tokens scoped and consumable) |
+| Embodied in | Iteration 11 implementation plan, Commit C3 (`loop.py` + `consultation.py`) |
+
+**Decision.** At the Awaiting Approval → Executing edge, `core` re-validates
+the token against its **declared preconditions** and the **injected current
+machine snapshot plus current policy** (P9; I-11); the token is scoped,
+consumable, and never reused (RFC-0008 §8). `core` re-validates, it never
+re-decides approval — classification and gate remain `policy`'s (I-7). No
+architecture is added; the TOCTOU rule is RFC-0002 §6's and RFC-0008 §10's.
+
+**Effect.** The boundary re-validation is testable at `core` now; the
+approval-to-execution gap closes deterministically.
+
+## DN-90 — Provider retry/backoff/fallback is a pure bounded reducer over injected events; back-off is data, never a sleep; the fallback-chain selection is RFC-0016's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 11 ratification) |
+| Date | 2026-08-10 |
+| Resolves | design review §10 Q6 |
+| Grounding | RFC-0002 §4.3 (PROVIDER_REFUSAL "Bounded retry with the provider, then fallback"; PROVIDER_UNAVAILABLE "Retry with backoff (bounded), then the fallback provider chain"; PROVIDER_TIMEOUT "Treated as PROVIDER_UNAVAILABLE after backoff"), §10 (Provider failure: "Retry with backoff (bounded) → fallback provider chain → degraded mode"); DN-55 (the injected-primitive / no-I/O precedent of Iteration 8); RFC-0010 §15 OQ1 (provider selection and profiles are RFC-0016's, Post-MVP); DN-77 (selection/fallback recorded as RFC-0016's) |
+| Embodied in | Iteration 11 implementation plan, Commit C4 (`recovery.py`) |
+
+**Decision.** Retry-with-backoff and the fallback chain are a **pure, bounded
+reducer** over injected failure/time events: back-off is data, never a sleep,
+and `core` imports no clock. The **selection** of the fallback chain is
+**RFC-0016's** (RFC-0010 §15 OQ1; DN-77); `core` runs the reaction only. No
+architecture is added; the recovery order is RFC-0002 §4.3/§10's.
+
+**Effect.** The reducer is deterministic and testable at `recovery.py` now; the
+I/O-free posture of `core` is preserved (DN-55).
+
+## DN-91 — Degraded mode is facts-only with deterministic (non-LLM) Skills and no recommendations; the product-vs-fallback scope is RFC-0019's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 11 ratification) |
+| Date | 2026-08-10 |
+| Resolves | design review §10 Q7 |
+| Grounding | RFC-0002 §4.3 (PROVIDER_FALLBACK_FAILED "→ degraded mode → Awaiting Input (facts-only presentation; no recommendations)"), §10 (Provider failure: "the runtime never fabricates a reply"), §11 OQ 11 (degraded-mode scope: "run baseline inspections, present raw facts, run skills that are fully deterministic?"), §9 I-9 (the runtime never fabricates); RFC-0011 §20.2 ("A deterministic Skill does not need a Provider — it runs in degraded mode"); RFC-0019 (MVP: the product-vs-fallback scope is RFC-0019's) |
+| Embodied in | Iteration 11 implementation plan, Commit C3 (`loop.py` + `consultation.py`) |
+
+**Decision.** Degraded mode (no usable Provider) is **facts-only**: baseline
+inspection, raw Facts presentation, and deterministic (non-LLM) Skills run —
+RFC-0011 §20.2; there are **no recommendations** and the runtime never
+fabricates (I-9; PROVIDER_FALLBACK_FAILED → Awaiting Input). Whether degraded
+mode is a product feature or a graceful-failure path — and how much it may do —
+is **RFC-0019's** (RFC-0002 §11 OQ 11). No architecture is added.
+
+**Effect.** The facts-only, no-recommendations reaction is testable at `core`
+now; the product scope stays with RFC-0019.
+
+## DN-92 — Timeouts are injected-deadline primitives; TIMEOUT is a core event with the §4.7 reaction; numeric budgets are RFC-0020's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 11 ratification) |
+| Date | 2026-08-10 |
+| Resolves | design review §10 Q8 |
+| Grounding | RFC-0002 §4.7 (TIMEOUT "a generic phase watchdog fired (stalled phase). If cognitive → Awaiting Input (disclose). If machine-touching → Interrupted"), §11 OQ 2/3 (the per-phase time budget and the grace window are open questions); DN-55 (the injected-primitive / no-clock precedent); RFC-0020 (numeric budgets are RFC-0020's) |
+| Embodied in | Iteration 11 implementation plan, Commits C1/C3/C4 (`events.py`; `loop.py`; `recovery.py`) |
+
+**Decision.** A deadline is an **injected primitive**; a phase expiry raises
+**TIMEOUT**, a core event with the §4.7 reaction — cognitive → Awaiting Input
+(disclose); machine-touching → Interrupted. `core` imports no clock and holds
+no numeric budget; the concrete per-phase budgets and grace windows are
+**RFC-0020's** (RFC-0002 §11 OQ 2/3). No architecture is added.
+
+**Effect.** Timeouts are deterministic and testable now; the budget values stay
+with RFC-0020.
+
+## DN-93 — Every cognitive consultation requires a fresh Provider View over the current facts; otherwise Context Building is re-entered first
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 11 ratification) |
+| Date | 2026-08-10 |
+| Resolves | design review §10 Q9 |
+| Grounding | RFC-0002 §6 (the LLM is "Consulted in Diagnosis, Planning, and Replanning — and only after a fresh Context Building has produced a provider view"; the LLM is never consulted with raw, unbounded machine output or with secrets), §4.3 (PROVIDER_FALLBACK_OK "→ continue the cognitive phase with a fresh Context Building"), §9 I-4 (the LLM is only ever consulted through a Provider View); RFC-0010 §3/PR14 (the Provider View is the only channel); RFC-0012 §13 (the View is re-assembled, never restored) |
+| Embodied in | Iteration 11 implementation plan, Commit C3 (`consultation.py`) |
+
+**Decision.** A cognitive consultation (Diagnosis, Planning, Replanning) is
+allowed only when the **current Provider View covers the current facts**;
+otherwise **Context Building is re-entered first** (RFC-0002 §6). The LLM is
+never consulted with raw output or secrets, and only through the View (I-4;
+PR14). No architecture is added; the fresh-View rule is RFC-0002 §6's.
+
+**Effect.** I-4 and the fresh-View rule are testable at `consultation.py` now.
+
+## DN-94 — The loop's integration tests inject deterministic fake provider/skill/executor responders; production `core` files perform no I/O
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 11 ratification) |
+| Date | 2026-08-10 |
+| Resolves | design review §10 Q10 |
+| Grounding | blueprint §7 (the `core` test-oracle row: state-machine conformance, invariants 1–15, interruption → re-assessment, no terminal outcome while work is in flight, no approval survives a boundary, recovery ordering), §8.11 DoD (a full-loop integration test mirrors `docs/core-execution-walkthrough.md` §2/§3; all 31 failure scenarios mirror `docs/failure-injection-walkthrough.md` §3); DN-55 (the injected-primitive / no-I/O precedent of Iteration 8); RFC-0002 §5 (the loop is the conductor with deterministic subsystem participation); RFC-0007 S7 (determinism is asserted) |
+| Embodied in | Iteration 11 implementation plan, Commit C5 (conformance + integration) |
+
+**Decision.** The full-loop integration test and the 31-scenario mirror inject
+**deterministic fake provider/skill/executor responders** (the DN-55
+precedent); production `core` files perform **no I/O** — no clock, no network,
+no filesystem, no subprocess. The walkthroughs are the conformance oracle for
+the loop. No architecture is added; the loop is RFC-0002 §5's and the
+testability is blueprint §7's.
+
+**Effect.** The §8.11 DoD's integration half is testable deterministically now;
+the I/O-free posture of `core` is conformance-enforced.
+
+### Q1–Q10 question status
+
+| §10 Q | Subject | Status | Where resolved |
+|---|---|---|---|
+| Q1 | Iteration scope / renumbering vs blueprint §8.11 | **Ratified** | DN-85 (this file) |
+| Q2 | The reachable transition set | **Ratified** | DN-86 (this file) |
+| Q3 | The event-set fidelity | **Ratified** | DN-87 (this file) |
+| Q4 | The audit writer at the runtime boundary | **Ratified** | DN-88 (this file) |
+| Q5 | Token re-validation input | **Ratified** | DN-89 (this file) |
+| Q6 | No-I/O retry/fallback | **Ratified** | DN-90 (this file) |
+| Q7 | Degraded-mode scope | **Ratified** | DN-91 (this file) |
+| Q8 | Timeout/budget events | **Ratified** | DN-92 (this file) |
+| Q9 | Fresh Context Building rule | **Ratified** | DN-93 (this file) |
+| Q10 | Loop testability at zero I/O | **Ratified** | DN-94 (this file) |
+
+All ten §10 questions are resolved as decision notes; none requires an RFC
+amendment, a `schema`/`systemmodel`/`trust`/`factlayer`/`verification`/`secrets`/
+`policy`/`executor`/`audit` change, a new module (the seven `core` modules are
+already scaffolded per blueprint §2), or a new dependency edge beyond the
+declared `core → {all packages}` set with `cli` the only importer (blueprint
+§4.1/§4.2). **Iteration 11 implementation is unblocked** (design review §16
+readiness). The planned commits (design review §12) will be recorded in
+`docs/implementation-consistency-report.md` (Iteration 11 section) as they land.
+
+### DN-85 … DN-94 completion status
+
+| Note | Decision | Status | Embodied in | Validated by |
+|---|---|---|---|---|
+| DN-85 | `core` executes at Iteration 11 per DN-45's re-order; blueprint §8.11 label superseded and stands until RFC-0020 | **Ratified** | C0 (docs-ratification) | design review §10 Q1 |
+| DN-86 | The reachable transition set is exactly the §2.1–§2.15 "Allowed transitions" + the §3 shortcut edges + the §2.9 next-step edge; the diagram defers to §§2/4 | **Ratified** | C1 (planned, `state_machine.py`) | pending C1 |
+| DN-87 | All §4.1–§4.7 events exist as typed events; the informational ones (OP_VIEW, ACTION_STARTED, ACTION_CLASSIFIED) are audited notes with no state change | **Ratified** | C1 (planned, `events.py`) | pending C1 |
+| DN-88 | `core` is the single runtime writer at every boundary, invoking `audit` before the consequence, metadata-only, fail-closed (AU8) | **Ratified** | C3/C5 (planned, `loop.py` + `consultation.py`; C5 suites) | pending C3/C5 |
+| DN-89 | At the Awaiting Approval → Executing edge the token is re-validated against its declared preconditions and the injected current machine state and policy (P9; I-11) | **Ratified** | C3 (planned, `loop.py` + `consultation.py`) | pending C3 |
+| DN-90 | Provider retry/backoff/fallback is a pure bounded reducer over injected events; back-off is data, never a sleep; the chain's selection is RFC-0016's | **Ratified** | C4 (planned, `recovery.py`) | pending C4 |
+| DN-91 | Degraded mode is facts-only with deterministic (non-LLM) Skills and no recommendations (I-9); the product-vs-fallback scope is RFC-0019's | **Ratified** | C3 (planned, `loop.py` + `consultation.py`) | pending C3 |
+| DN-92 | Timeouts are injected-deadline primitives; TIMEOUT is a core event with the §4.7 reaction; numeric budgets are RFC-0020's | **Ratified** | C1/C3/C4 (planned, `events.py`/`loop.py`/`recovery.py`) | pending C1/C3/C4 |
+| DN-93 | Every cognitive consultation requires a fresh Provider View over the current facts; otherwise Context Building is re-entered first | **Ratified** | C3 (planned, `consultation.py`) | pending C3 |
+| DN-94 | The loop's integration tests inject deterministic fake provider/skill/executor responders (DN-55); production `core` files perform no I/O | **Ratified** | C5 (planned, conformance + integration) | pending C5 |
+
+**Iteration 11 ratification note.** All ten Orchestration Core layer decisions
+(DN-85…DN-94) are ratified **before Commit C1**, the first implementation
+commit, exactly as Iterations 1–10 ratified their ten decisions before C0; none
+is yet implemented (C1–C6 remain, per design review §12). The seven `core`
+modules are scaffolded stubs (blueprint §2) and the `core` dependency row is
+already declared in `tests/test_dependency_rules.py`, so the tree test stays
+green throughout. Because Iteration 11's C0 (the design-review record) was
+committed first, the ratification record in this file travels with Commit C1;
+the design review §16 readiness flips to READY and Commit C1 (`state_machine.py`
++ `events.py`, the state/event model) satisfies the design review §14 C1 DoD.
