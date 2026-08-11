@@ -2137,6 +2137,278 @@ and names its §1.2 owner (design review §1.2):
 
 ---
 
+## Iteration 11 — the `core` layer (complete)
+
+Iteration 11 implements the **Layer-6 Orchestration Core layer** (`core`, RFC-0002;
+blueprint §8.11, re-ordered by DN-45 to follow `providers` + `skills`). The full
+design review is `docs/iteration-11-design-review.md`; the ratified decisions are
+DN-85…DN-94 in `docs/implementation-decision-notes.md`, with the C1 production-LOC
+reconciliation ratified as DN-95. Commit C0 was the docs-ratification commit
+(answers all ten design-review questions Q1–Q10 as decision notes); C1–C4
+implemented and tested the layer; C5 added the conformance oracle; C6 (this
+commit) records its completion and the layer's conformance. No RFC is modified,
+no module exists outside the blueprint §2 tree (the seven `core`
+`{__init__,session,state_machine,events,loop,consultation,replan,recovery}.py`
+modules were already scaffolded in Iteration 0 and are filled, not created), and
+no dependency edge is added: `core` may import every package (blueprint §4.1) and
+is imported only by `cli` (the C5 AST import test). C1–C4 fill the scaffolds with
+**no new module**; `src/` is untouched by C5 and C6.
+
+### Commit mapping (C0–C6)
+
+| Commit | Message | Content |
+|---|---|---|
+| C0 `7fe1a88` | `docs: ratify Iteration 11 questions Q1-Q10 and core scope` | Design-review ratification: Q1–Q10 resolved, DN-85…DN-94 recorded, consistency-report note |
+| C0b `7ae25bd` | `docs: ratify C1 LOC reconciliation (DN-95)` | C1's verified production LOC (1,027) reconciled as inherent to the DN-87 explicit per-event dispatch |
+| C1 `52bbb08` | `feat(core): the RFC-0002 state machine and event model (RFC-0002 §2, §3, §4; RFC-0013 §7)` | `state_machine.py`: the fifteen states, the §2 "Allowed transitions" as a pure table, `permitted`/`evolve`, the §3 shortcut edges, the §2.9 next-step edge; `events.py`: the typed §4.1–§4.7 catalog (39 `EventKind` members), per-event dispatch, the audited information-only events (Q3), the injected deadline event (Q8) — 169 tests (`test_core_state_machine.py` 65, `test_core_events.py` 104) |
+| C2 `29c6f83` | `feat(core): session lifecycle and goal adoption (RFC-0002 §1, §2.1–§2.2, §4.1; RFC-0013 §7)` | `session.py`: start (prerequisite checks), the single-goal serial lifecycle, goal adoption with its record (I-13), the outcome terminals → Idle — 62 tests (`test_core_session.py`) |
+| C3 `07faed3` | `feat(core): the session loop conductor and component-consultation rules (RFC-0002 §5, §6; RFC-0013 §7, §21, §23; RFC-0010 PR14; DN-86, DN-88, DN-89, DN-93, DN-94)` | `loop.py` + `consultation.py`: the 10-step conductor with injected responders, the provider/skill consult rules and the fresh-View rule (Q9), the classify → gate → token → re-validate → Executor path (I-1/I-11), the boundary audit writes (Q4), degraded-mode reaction (Q7) — 101 tests (baseline `test_core_loop.py`) |
+| C4 `38a6979` | `feat(core): replanning and failure recovery (RFC-0002 §2.10, §7, §8, §10)` | `replan.py`: when to replan, provenance-reuse rules, targeted revision vs rebuild, re-normalize/re-classify/re-present, no carried approval (I-6); `recovery.py`: the determinism→disclosure→decision→action order, the bounded pure provider-failure reducer (Q6), executor/collector/policy failures, partial execution, interruption — 107 tests (`test_core_replan.py` 81, `test_core_recovery.py` 26) |
+| C5 `60490b4` | `test(core): C5 conformance oracle — imports, invariants, authority, walkthrough mirrors` | The reachable-transition oracle (Q2), the I-1…I-15 + AU8 invariant suite in every reachable state, the authority/use-limit suite (RFC-0004 §7; I-1/I-7/I-11/I-12), imports conformance (only `cli → core`), the full-loop happy-path mirror of `core-execution-walkthrough.md` §2/§3, and the failure-scenario mirrors of `failure-injection-walkthrough.md` §3 with injected deterministic responders (Q10) — 434 new tests (`test_core_imports.py` 90, `test_core_invariants.py` 306, `test_core_authority.py` 24, plus 14 walkthrough mirrors added to `test_core_loop.py`) |
+| C5b `1faf648` | `test(core): mirror the walkthrough §6.1 impossible-transition table` | The §6.1 impossible transitions asserted structurally and behaviorally — 1 walkthrough-mirror test added to `test_core_loop.py` |
+| C6 `(this commit)` | `docs: record Iteration 11 completion and core conformance` | This closeout |
+
+### Q1–Q10 resolution summary
+
+| §11 Q | Subject | Resolution | Governing RFC / note |
+|---|---|---|---|
+| Q1 | Iteration scope / renumbering vs blueprint §8.11 | `core` executes at Iteration 11 per DN-45's re-order; blueprint §8.11's label superseded and stands until RFC-0020 | **DN-85**; blueprint §8.11 |
+| Q2 | The reachable transition set | The set is exactly the §2.1–§2.15 "Allowed transitions" lists + the §3 shortcut edges + the §2.9 next-step edge; the diagram defers to §§2/4; nothing else is reachable | **DN-86**; RFC-0002 §0/§2/§3 |
+| Q3 | The event-set fidelity | All §4.1–§4.7 events exist as typed events; the informational ones (OP_VIEW, ACTION_STARTED, ACTION_CLASSIFIED) emit audited notes and change no state | **DN-87**; RFC-0002 §4 |
+| Q4 | The audit writer at the runtime boundary | `core` is the single runtime writer at every boundary, invoking `audit` before the consequence, metadata-only, fail-closed (AU8); lower packages emit deterministic boundary events and never write | **DN-88**; RFC-0013 §23; RFC-0002 I-13 |
+| Q5 | Token re-validation input | At the Awaiting Approval → Executing edge the token is re-validated against its declared preconditions and the injected current machine state and policy (P9; I-11) | **DN-89**; RFC-0008 P9; RFC-0002 §2.8 |
+| Q6 | No-I/O retry/fallback | Provider retry/backoff/fallback is a pure bounded reducer over injected events; back-off is data, never a sleep; no clock import in `core`; the chain's selection is RFC-0016's | **DN-90**; RFC-0002 §4.3/§10; DN-55 |
+| Q7 | Degraded-mode scope | Degraded mode is facts-only with deterministic (non-LLM) Skills and no recommendations (I-9); the product-vs-fallback scope remains RFC-0019's | **DN-91**; RFC-0002 §11 OQ 11; RFC-0011 §20 |
+| Q8 | Timeout/budget events | Timeouts are injected-deadline primitives; TIMEOUT is a core event with the §4.7 reaction; numeric budgets are RFC-0020's | **DN-92**; RFC-0002 §11 OQ 2/3 |
+| Q9 | Fresh Context Building rule | Every cognitive consultation requires a fresh Provider View over the current facts; otherwise Context Building is re-entered first | **DN-93**; RFC-0002 §6 |
+| Q10 | Loop testability at zero I/O | The loop's integration tests inject deterministic fake provider/skill/executor responders (DN-55); production `core` files perform no I/O | **DN-94**; blueprint §7; DN-55 |
+
+### DN-85 … DN-95 implementation mapping
+
+| Note | Decision | Embodied in | Validated by |
+|---|---|---|---|
+| DN-85 | `core` = Iteration 11 per DN-45's re-order; §8.11 label superseded | C0 | design review §10 Q1 |
+| DN-86 | Reachable set = §2.1–§2.15 + §3 shortcuts + §2.9 next-step; nothing else | C1 (`state_machine.py`) | `test_core_state_machine.py`; C5 reachable-set oracle |
+| DN-87 | Full §4.1–§4.7 catalog as typed events; informational events are audited notes, no state change | C1 (`events.py`) | `test_core_events.py` |
+| DN-88 | `core` = single runtime boundary writer, `audit` before consequence, metadata-only, fail-closed (AU8) | C3 (`loop.py`) | `test_core_loop.py`; C5 invariants/authority |
+| DN-89 | Token re-validated against preconditions + injected state and policy at the edge (P9; I-11) | C3 (`loop.py`) | `test_core_loop.py`; C5 authority (A9/A10) |
+| DN-90 | Retry/backoff/fallback = pure bounded reducer over injected events; back-off is data | C4 (`recovery.py`) | `test_core_recovery.py` |
+| DN-91 | Degraded mode facts-only, deterministic Skills, no recommendations (I-9) | C3 (`loop.py`) | `test_core_loop.py`; C5 walkthrough mirrors (S1/S3/S4) |
+| DN-92 | Timeouts = injected-deadline primitives; TIMEOUT event with §4.7 reaction | C1/C3/C4 (`events.py`/`loop.py`/`recovery.py`) | `test_core_events.py`; `test_core_recovery.py` |
+| DN-93 | Every cognitive consult needs a fresh Provider View; else Context Building re-entered | C3 (`consultation.py`) | `test_core_loop.py` (consult matrix); `test_core_invariants.py` |
+| DN-94 | Integration tests inject deterministic responders; production `core` performs no I/O | C5 (all suites) | C5 import/conformance oracle; AST |
+| DN-95 | C1's 1,027 production LOC reconciled as inherent to the DN-87 dispatch | C1 (recorded at C0b) | — (ratified reconciliation) |
+
+### Module ownership map
+
+| Type / value | Module | Owning RFC |
+|---|---|---|
+| `Prerequisites`, `Session`, `Step` | `core/session.py` | RFC-0002 §1, §2.1–§2.2, §4.1; RFC-0013 §7 |
+| `State` (16 states), `ALLOWED`, `SECTION2_ALLOWED`, `GOAL_ACTIVE`, `Transition`, `Refusal`, `permitted`, `evolve` | `core/state_machine.py` | RFC-0002 §2, §3, §4 |
+| `EventKind` (39 members), `CATALOG`, `INFORMATION_ONLY`, `AuditRecord`, `RecordCategory`, `RuntimeEvent`, `Deadline`, `PartialHalt`, the typed §4.1–§4.7 events | `core/events.py` | RFC-0002 §4; RFC-0013 §7 |
+| `Loop`, `LoopStep`, `Workstate`, `Decision`, `Inspection`, `ViewResult`, `Reply`, `GateResult`, `RunKind`, `RunResult`, `VerifyKind`, `VerifyResult`, `WriteStatus`, `Consultation`, `advance`, `pump` | `core/loop.py` | RFC-0002 §5 |
+| `Subsystem`, `CONSULTED`, `NEVER`, the per-subsystem consulted-state sets, `may_consult`, `provider_consultation_allowed`, `skills_consultable`, `diagnostics_consultable`, `consultation_refusal` | `core/consultation.py` | RFC-0002 §6 |
+| `FactReuse`, `ReplanTrigger`, `ReplanDecision`, `RevisionScope`, `ReentryStage`, `ReentrySequence`, `reuse_fact`, `approval_carries`, `reopen`, `revise_scope`, `trigger_from_event`, `reentry_sequence` | `core/replan.py` | RFC-0002 §2.10, §7 |
+| `RecoveryOrder`, `RecoveryStep`, `ProviderReaction`, `ProviderRecovery`, `ProviderRecoveryState`, `ProviderFailureKind`, `ActionRecovery`, `ActionFailureKind`, `CollectorRecovery`, `CollectorFailureKind`, `PolicyRecovery`, `PolicyFailureKind`, `PartialRecovery`, `InterruptRecovery`, `backoff_delay`, `recover`, `recovery_order`, `reduce_provider_failure`, `decide_provider_reaction`, `on_provider_failure`, `on_action_failure`, `on_collector_failure`, `on_policy_failure`, `on_partial`, `on_interrupt` | `core/recovery.py` | RFC-0002 §8, §10 |
+
+Each type is defined in exactly one module; no type is re-defined or shared
+across modules (RFC-0004 §3 one-owner rule; design review §4). The `schema`,
+`context`, `policy`, `executor`, `verification`, `factlayer`, `audit`, and
+`providers`/`skills` types are consumed as values through their owner-named
+entry points and never re-declared.
+
+### Public surface map
+
+| Module | Public surface (`__all__`) |
+|---|---|
+| `core/session.py` | `Prerequisites`, `Session`, `Step` |
+| `core/state_machine.py` | `ALLOWED`, `GOAL_ACTIVE`, `SECTION2_ALLOWED`, `Refusal`, `State`, `Transition`, `evolve`, `permitted` |
+| `core/events.py` | `CATALOG`, `INFORMATION_ONLY`, `AuditRecord`, `ActionBlocked`, `ActionClassified`, `ActionFailed`, `ActionInterrupted`, `ActionPartial`, `ActionStarted`, `ActionSucceeded`, `ActionTimeout`, `CollectorFailed`, `ConfigChanged`, `ContextFull`, `Deadline`, `EventKind`, `FactsCollected`, `OpApprove`, `OpCancel`, `OpExit`, `OpGoal`, `OpInterrupt`, `OpOverride`, `OpRefine`, `OpReject`, `OpReply`, `OpView`, `PartialHalt`, `PlanReady`, `PlanRefined`, `PlanRejected`, `ProviderFallbackFailed`, `ProviderFallbackOk`, `ProviderRefusal`, `ProviderResponse`, `ProviderTimeout`, `ProviderUnavailable`, `RebootDetected`, `RebootRequested`, `RecordCategory`, `RuntimeEvent`, `SkillUnavailable`, `StateChangedDetected`, `Timeout`, `VerificationFailed`, `VerificationInconclusive`, `VerificationPassed` |
+| `core/loop.py` | `Consultation`, `Decision`, `GateResult`, `Inspection`, `Loop`, `LoopStep`, `Reply`, `RunKind`, `RunResult`, `VerifyKind`, `VerifyResult`, `ViewResult`, `Workstate`, `WriteStatus`, `advance`, `pump` |
+| `core/consultation.py` | `CONSULTED`, `DIAGNOSTICS_CONSULTED_STATES`, `EXECUTOR_CONSULTED_STATES`, `NEVER`, `PROVIDER_CONSULTED_STATES`, `SKILL_CONSULTED_STATES`, `Subsystem`, `consultation_refusal`, `diagnostics_consultable`, `may_consult`, `may_consult_provider`, `provider_consultation_allowed`, `skills_consultable` |
+| `core/replan.py` | `FactReuse`, `ReentrySequence`, `ReentryStage`, `ReplanDecision`, `ReplanTrigger`, `RevisionScope`, `approval_carries`, `reentry_sequence`, `reopen`, `reuse_fact`, `revise_scope`, `trigger_from_event` |
+| `core/recovery.py` | `ActionFailureDecision`, `ActionFailureKind`, `ActionRecovery`, `CollectorFailureDecision`, `CollectorFailureKind`, `CollectorRecovery`, `InterruptDecision`, `InterruptRecovery`, `PartialDecision`, `PartialRecovery`, `PolicyFailureDecision`, `PolicyFailureKind`, `PolicyRecovery`, `ProviderFailureKind`, `ProviderReaction`, `ProviderRecovery`, `ProviderRecoveryState`, `RecoveryOrder`, `RecoveryStep`, `backoff_delay`, `decide_provider_reaction`, `on_action_failure`, `on_collector_failure`, `on_interrupt`, `on_partial`, `on_policy_failure`, `on_provider_failure`, `recover`, `recovery_order`, `reduce_provider_failure` |
+
+The `core/__init__.py` facade re-exports nothing and leaks no internal
+placeholder (design review §6). `core` holds **Propose**, **Refuse**, and
+**Explain** only (RFC-0004 §7 Orchestrator row); it never decides, approves,
+executes, verifies, classifies, or creates a Fact — every forbidden act is
+reached only through an injected seam (C5).
+
+### Layer-6 conformance summary
+
+Verified by the C5 conformance oracle (`test_core_imports.py`,
+`test_core_invariants.py`, `test_core_authority.py`, plus the walkthrough
+mirrors in `test_core_loop.py`) and by `tests/test_dependency_rules.py` +
+`tests/test_packages.py`:
+
+- **Imports.** `core` imports only stdlib + its own modules + the sanctioned
+  intra-episky set (`episky.core`, `episky.schema`, `episky.factlayer`) — the
+  observed top-level import surface is exactly `{episky.core, episky.schema,
+  episky.factlayer}`; stdlib is the closed types-only allowlist
+  (`collections.abc`, `dataclasses`, `datetime`, `enum`, `types`, `typing`,
+  `__future__`). Only `cli` imports `core` (C5 AST dependency edge).
+- **No forbidden imports.** No higher-layer authority package and no
+  `cli`; no I/O-, concurrency-, clock-, persistence-, randomness-, or
+  network-capable stdlib in any production `core` file (no `os`, `socket`,
+  `subprocess`, `requests`, `urllib`, `random`, `time`, `secrets`, …).
+- **No dependency-edge violations.** `test_dependency_rules.py` green; the
+  declared and observed import graphs are acyclic.
+- **No forbidden runtime logic.** No top-level control flow; module-level code
+  builds only constant data (the state table, the consult matrices, the event
+  catalog); no I/O, clocks, randomness, persistence, or provider/executor
+  calls anywhere; everything external is injected (DN-55).
+- **Determinism (RFC-0007 S7).** Same input → same transitions; back-off and
+  deadlines are data, never a sleep or a clock read.
+- **No authority.** `core`'s Orchestrator cell set is exactly
+  Propose/**Refuse**/**Explain**; the A9 gate (classify → gate → token →
+  re-validate → Executor) is the only path to execution; no provider string
+  reaches the `run_executor` seam (A1).
+
+### RFC invariant and authority-boundary coverage
+
+Each of the fifteen RFC-0002 §9 invariants plus RFC-0013 AU8 is asserted in
+**every** reachable state — the reachable set (BFS from Session Initialization
+over `ALLOWED`) is exactly all sixteen states (DN-86) — and the RFC-0004 §7
+Orchestrator row is enforced:
+
+| Invariant | `core`'s method | Coverage |
+|---|---|---|
+| I-1 — No execution without approval | Only path to `executor` is gate → token → re-validate | `test_core_authority.py`; C5 invariants (all states) |
+| I-2 — Verification always follows execution | Executing's only non-halt exits are toward Verification | `test_core_loop.py`; `test_core_invariants.py` |
+| I-3 — Planning/Diagnosis/Replanning execute nothing | The loop never runs an Action in the cognitive states | `test_core_invariants.py` (all states) |
+| I-4 — LLM only through a Provider View | The consultation rule + View-only seam | `test_core_loop.py` (consult matrix) |
+| I-5 — No untrusted text interpolated into a command | Actions are sanctioned structures, never shell strings | C5 imports oracle (I/O tokens); authority (A1) |
+| I-6 — Deviation requires fresh approval | Replan re-presents; no carried approval | `test_core_replan.py`; C5 invariants |
+| I-7 — Risk classification deterministic, never LLM self-report | `core` never classifies; `policy` does | `test_core_authority.py` |
+| I-8 — Any halt → re-assessment | Interrupt/timeout/partial → re-inspect before continue | `test_core_recovery.py`; C5 walkthrough mirrors (S21/S27) |
+| I-9 — The runtime never fabricates | Degraded/partial/unknown are disclosed, never filled | C5 walkthrough mirrors (S1/S3/S4/S12) |
+| I-10 — Facts carry provenance and expire | Only fresh, attributed facts are consumed | `test_core_replan.py` (reuse); `test_core_invariants.py` |
+| I-11 — Tokens scoped and consumable | Boundary re-validation; consume by use/expiry/state change | `test_core_loop.py`; C5 authority (A9/A10) |
+| I-12 — Blocked action only via audited override | OP_OVERRIDE mints a fresh, recorded approval | `test_core_loop.py` |
+| I-13 — Audit written before the consequence | Boundary writers; fail-closed | `test_core_loop.py`; C5 invariants/AU8 |
+| I-14 — No terminal outcome while in flight | Completed/Failed/Cancelled only after Verification or a verified halt | `test_core_invariants.py` (all states) |
+| I-15 — No standing authorization across a boundary | Every boundary clears approvals | `test_core_invariants.py`; C5 walkthrough mirrors (S21/S25) |
+| AU8 — A failed write blocks and is disclosed | Write failure → block the consequence, tell the Operator | `test_core_invariants.py`; `test_core_authority.py` |
+| RFC-0004 §7 Orchestrator: Observe/Infer/Verify/Approve/Execute/Persist **F**, Propose/Refuse/Explain **A** | Seam-routing only | `test_core_authority.py` |
+| Walkthrough §6.1 impossible transitions | Each forbidden edge structurally absent and behaviorally refused | `test_core_loop.py` (C5b mirror) |
+
+### C5 conformance-oracle coverage
+
+- **Reachable-set oracle (DN-86).** `test_core_state_machine.py` and
+  `test_core_invariants.py` assert the reachable set equals the Q2 set (all
+  sixteen states); the impossible-transition table (walkthrough §6.1) passes.
+- **Invariants in every state.** `test_core_invariants.py` runs I-1…I-15 and
+  AU8 over every reachable state (306 collected tests), including the conductor
+  drive under a refused audit write.
+- **Authority / use-limit suite.** `test_core_authority.py` asserts the
+  Orchestrator row, the single-A Execute column reached only through
+  gate → token → re-validate → `run_executor` (A9), approval recorded before
+  spent (A10), and that the provider `Reply` never reaches the executor seam
+  (A1).
+- **Imports conformance.** `test_core_imports.py` asserts the sanctioned
+  intra-episky surface, the closed stdlib allowlist, an AST-based banned
+  I/O/clock/random/network token oracle, and that only `cli` imports `core`.
+- **Walkthrough integration.** `test_core_loop.py` mirrors the 17-stage happy
+  path of `core-execution-walkthrough.md` §2/§3 and the core-observable
+  failure scenarios of `failure-injection-walkthrough.md` §3, each ending at
+  its documented core transition/record, with injected deterministic
+  responders (Q10/DN-94). No production I/O in any `core` file.
+
+### Dependency verification
+
+- `tests/test_dependency_rules.py` green: `core` imports only within
+  `ALLOWED["core"] = {all packages}`; `cli` is the only importer of `core`
+  (C5 AST edge); the forbidden sets hold; graphs acyclic.
+- `tests/test_packages.py` green: tree matches blueprint §2 exactly (the seven
+  `core` modules filled, not created).
+- Enforced additionally by `test_core_imports.py`: the exact ratified import
+  set, forbidden packages and stdlib, no clock/randomness/I/O tokens, no
+  top-level runtime logic, public surface == owned vocabulary.
+
+### Ownership verification
+
+- One owner per name: each `__all__` name is defined by exactly one module; no
+  type is re-declared; the `schema`/`context`/`policy`/`executor`/
+  `verification`/`factlayer`/`audit` types are consumed as values (RFC-0004
+  §3).
+- **No authority overlap.** `core` holds Propose/Refuse/Explain only; it never
+  holds a decision cell, an approval token, a verification verdict, an Audit
+  record, or an execution surface (RFC-0004 §7; design review §4). The lower
+  layers' authority is untouched.
+- **Two-owner checks (design review §4).** (a) authority vs contract: RFC-0004
+  §4.3 owns the authority, RFC-0002 owns the states/events/recovery — two
+  properties, one owner each; (b) the runtime-boundary audit write is `core`'s,
+  the record's append-only integrity `audit`'s (Q4); (c) the provider-failure
+  reaction is `core`'s (RFC-0002 §10), the fallback-chain *selection*
+  RFC-0016's (Q6) — recorded, not implemented.
+
+### Remaining deferred items
+
+Recorded only; nothing is invented. Each belongs to a later iteration or RFC
+and names its §1.2 owner (design review §1.2):
+
+| Deferred item | Owning future iteration / RFC |
+|---|---|
+| Durable resume markers, their storage/lifetime/garbage collection; interrupted-action reconciliation | RFC-0002 §2.1/§8/§10; RFC-0014 |
+| Concrete phase budgets, retry counts, grace windows, per-domain staleness bounds | RFC-0002 §11 OQ 2/3; RFC-0020 / RFC-0002 |
+| Concurrent read-only collection | RFC-0002 §11 OQ 15; RFC-0020 |
+| The read-only allowlist and its owner | RFC-0002 §11 OQ 4; RFC-0008 |
+| Multi-goal coexistence / queue / split | RFC-0002 §11 OQ 10; RFC-0002 / RFC-0020 |
+| The watchdog's concrete watch set and false-positive heuristics | RFC-0002 §11 OQ 17; RFC-0020 |
+| Real vendor adapters, skill fetch, sandbox | RFC-0020 |
+| The TUI interaction contract | RFC-0015 |
+| The RFC-0002 event-vocabulary additions to RFC-0003 Part I | RFC-0003 Part II |
+| Provider selection, preference order, fallback chains, profiles, and cost controls (incl. the fallback-chain selection behind the pure reducer) | RFC-0016 (Post-MVP); RFC-0010 §15 OQ1/OQ4 |
+| The product-vs-fallback scope of degraded mode | RFC-0019 (MVP definition) |
+| Numeric phase/timeout budgets | RFC-0020 |
+| The `cli` layer (Layer 7), the only importer of `core` | blueprint §8.12; Iteration 12 |
+
+### Completion verdict
+
+- Iteration 11 implementation is **complete**.
+- **Layer-6 Definition of Done is satisfied** (design review §14 overall DoD):
+  state-machine conformance (only §2/§3/§4 transitions reachable); invariants
+  1–15 hold in every state; recovery ordering is
+  determinism→disclosure→decision→action; the full-loop integration test
+  mirrors the execution walkthrough and the core-observable failure scenarios
+  mirror the failure walkthrough; `pytest`, `ruff check`, `ruff format --check`,
+  `python -m build`, and `pre-commit` all green; the tree and edges unchanged.
+- **C0–C6 are complete.** The seven `core` modules (`session.py` +
+  `state_machine.py` + `events.py` + `loop.py` + `consultation.py` +
+  `replan.py` + `recovery.py`) are each deterministic, pure, I/O-free, and
+  authority-bounded. C5 is the conformance oracle; C6 is this record.
+- **Actual scope recorded.** Production `core` is **3,367 LOC** (incl. the
+  12-LOC `__init__.py` facade), with C1 reconciled by DN-95 (1,027) and C3/C4
+  (loop + consultation 936; replan + recovery 1,209) also exceeding the §12
+  per-commit estimate in the manner DN-95 recorded for C1 — the cap is a
+  governance target, not an RFC invariant, and the design-review §14 per-commit
+  DoD is met for every commit. Test LOC is **5,008** across the nine
+  `test_core_*` modules.
+- Full suite: **3404 tests pass** (2530 baseline + 874 new across the nine
+  `test_core_*` modules); ruff, format, build, and pre-commit are clean.
+  Working tree is clean after C6 (only the pre-existing untracked `HANDOFF.md`
+  and `uv.lock` remain).
+
+### Readiness for Iteration 12
+
+- The next iteration is **`cli`** (Layer 7; blueprint §8.12) — the only
+  importer of `core`. `cli` consumes the `core` session/loop surface
+  (`Session`, `advance`/`pump`, `Loop` with injected responders) as its sole
+  entry point (blueprint §5: "the only entry point the `cli` uses").
+- The `core`-owned runtime wiring recorded as deferred in Iterations 8–10 —
+  the consultation wiring, the gate routing, the audit writes, the
+  provider-failure reaction, the provider-world/machine-world separation — is
+  now implemented and conformance-enforced; nothing further is owed by `core`.
+- The deferred items table above names every §1.2 owner for the concrete
+  I/O/durable surfaces that do not exist yet (resume persistence, budgets, the
+  watchdog, multi-goal, real adapters/sandbox, the TUI).
+- **Ready.** Baseline 3404 green; DN-85…DN-95 are all implemented and
+  validated (no orphaned decision notes); the deferred-items table names every
+  owner; the tree and dependency edges are unchanged.
+
+---
+
 ## Known limitation
 
 Blueprint §8.1 Definition of Done requires the validator to "exit 0 on the

@@ -2767,3 +2767,24 @@ the C1 experience (`events.py` is the whole §4 catalog, not a template for
 other files). No RFC, no design decision (DN-86/DN-87), and no architecture
 change; the §12 cap continues to apply to subsequent commits from their §15
 estimates.
+
+### DN-85 … DN-95 completion block (Iteration 11 closeout)
+
+| Note | Status | Embodiment | Validation |
+|---|---|---|---|
+| DN-85 … DN-95 | **Implemented** | C1–C5 | corresponding suites + C5 conformance oracle |
+
+**Iteration 11 completion note.** All ratified Orchestration Core layer
+decisions (DN-85…DN-95) are implemented and validated: the full suite is green
+(3404 tests, 2530 baseline + 874 new across the nine `test_core_*` modules),
+the C5 conformance oracle (`test_core_imports.py`, `test_core_invariants.py`,
+`test_core_authority.py`, plus the walkthrough mirrors in `test_core_loop.py`)
+enforces the ratified readings — the reachable transition set (DN-86), the
+typed §4 catalog (DN-87), the single boundary writer (DN-88), the token
+re-validation edge (DN-89), the pure provider-failure reducer (DN-90), the
+facts-only degraded mode (DN-91), the injected-deadline timeouts (DN-92), the
+fresh-Provider-View rule (DN-93), and the zero-I/O injected-responder loop
+(DN-94) — and the C1 production-LOC reconciliation (DN-95) stands as ratified.
+The next iteration is the `cli` layer (blueprint §8.12), the only importer of
+`core`, which consumes the `core` session/loop surface as its sole entry point.
+No new decision note is required for this closeout.
