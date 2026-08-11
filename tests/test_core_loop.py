@@ -1604,3 +1604,39 @@ def test_walkthrough_unsupported_platform_fails_closed():
     result = Session.initial().start(denied)
     assert isinstance(result, Session)
     assert result.state is State.END
+
+
+def test_walkthrough_impossible_transitions_hold():
+    """Mirror the walkthrough §6.1 impossible-transition table.
+
+    Each forbidden edge is structurally absent (RFC-0002 §2/§4 reachable set,
+    DN-86) and, where the conductor can be driven, behaviorally refused.
+    """
+    structural = [
+        (State.DIAGNOSING, State.EXECUTING),
+        (State.PLANNING, State.EXECUTING),
+        (State.IDLE, State.EXECUTING),
+        (State.EXECUTING, State.COMPLETED),
+        (State.AWAITING_APPROVAL, State.COMPLETED),
+        (State.INTERRUPTED, State.EXECUTING),
+    ]
+    for source, target in structural:
+        assert not permitted(source, target), (
+            f"{source.name} -> {target.name} must be impossible"
+        )
+    s = Responders()
+    result = advance(s.loop(), Session(State.EXECUTING, "g"), Workstate())
+    assert isinstance(result, Refusal)
+    assert "no approval token" in result.reason
+    held = advance(s.loop(), Session(State.IDLE, None))
+    assert isinstance(held, LoopStep)
+    assert held.session.state is State.IDLE
+    s2 = Responders()
+    presented = pump(s2.loop(), ready_session())
+    assert isinstance(presented, LoopStep)
+    approved = advance(s2.loop(), presented.session, presented.work, event=OpApprove())
+    assert isinstance(approved, LoopStep)
+    s2.verify_result = VerifyResult(VerifyKind.INCONCLUSIVE)
+    inconclusive = pump(s2.loop(), approved.session, approved.work)
+    assert isinstance(inconclusive, LoopStep)
+    assert inconclusive.session.state is State.AWAITING_INPUT
