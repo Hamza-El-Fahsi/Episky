@@ -1328,3 +1328,279 @@ def test_every_conductor_continuation_is_a_machine_permitted_edge():
                 f"{current.state.name} -> {next_step.session.state.name}"
             )
         current = next_step.session
+
+
+# ---------------------------------------------------------------------------
+# C5 walkthrough mirrors (docs/core-execution-walkthrough.md §3; §6)
+# ---------------------------------------------------------------------------
+
+
+def test_walkthrough_happy_path_seventeen_stages():
+    """Mirror the 17-stage lifecycle from initialization to return to Idle.
+
+    Stage 2 runtime initialization (INITIALIZING → Idle gate), Stage 1
+    operator request (goal adoption → Machine Inspection), Stages 3–6
+    (context assembly, provider interaction, proposal, approval generation →
+    Awaiting Approval), Stage 7 approval verification (→ Executing), Stages
+    11–15 (machine execution, post-execution inspection, fact comparison,
+    outcome classification, audit → Completed), and Stage 17 return to Idle.
+    """
+    initial = Session.initial()
+    assert initial.state is State.INITIALIZING
+    started = initial.start(OK)
+    assert isinstance(started, Session)
+    assert started.state is State.IDLE
+    adopted = started.adopt_goal("fix nginx")
+    assert isinstance(adopted, Step)
+    assert adopted.session.state is State.INSPECTING
+    r1 = Responders()
+    presented = pump(r1.loop(), adopted.session)
+    assert isinstance(presented, LoopStep)
+    assert presented.session.state is State.AWAITING_APPROVAL
+    assert presented.work.presented is True
+    assert named(presented.writes) == [
+        EventKind.FACTS_COLLECTED.name,
+        EventKind.PROVIDER_RESPONSE.name,
+        EventKind.PROVIDER_RESPONSE.name,
+        EventKind.PLAN_READY.name,
+        EventKind.ACTION_CLASSIFIED.name,
+        EventKind.ACTION_BLOCKED.name,
+    ]
+    approved = advance(r1.loop(), presented.session, presented.work, event=OpApprove())
+    assert isinstance(approved, LoopStep)
+    assert approved.session.state is State.EXECUTING
+    assert approved.work.token == ("t1",)
+    r2 = Responders()
+    done = pump(r2.loop(), approved.session, approved.work)
+    assert isinstance(done, LoopStep)
+    assert done.session.state is State.COMPLETED
+    assert named(done.writes) == [
+        EventKind.ACTION_STARTED.name,
+        EventKind.ACTION_SUCCEEDED.name,
+        EventKind.VERIFICATION_PASSED.name,
+    ]
+    assert done.work.token is None
+    assert done.work.tokens == ()
+    back_to_idle = done.session.adopt_goal("fix nginx")
+    assert isinstance(back_to_idle, Step)
+    assert back_to_idle.session.state is State.IDLE
+
+
+def test_walkthrough_provider_failure_degrades_to_facts_only():
+    """Scenario 1/3/4 — malformed, timed-out, or unavailable provider.
+
+    Degradation grants nothing: the mode is facts-only, no recommendations,
+    and the runtime asks rather than fabricates (RFC-0002 §4.3; I-9; PR11).
+    """
+    r = Responders()
+    r.reply = Reply(Decision.GROUNDED, degraded=True)
+    step = pump(r.loop(), ready_session())
+    assert isinstance(step, LoopStep)
+    assert step.session.state is State.AWAITING_INPUT
+    assert EventKind.PROVIDER_FALLBACK_FAILED in [w.kind for w in step.writes]
+    assert any("no recommendations" in d for d in step.disclosures)
+
+
+def test_walkthrough_provider_refusal_is_honored_and_presented():
+    """Scenario 5 — the refusal is a report, not a verdict.
+
+    The provider's refusal routes to Awaiting Input where the Operator
+    chooses; the core does not route around it (RFC-0010 §8 rule 5).
+    """
+    r = Responders()
+    r.reply = Reply(Decision.CLARIFY)
+    step = pump(r.loop(), ready_session())
+    assert isinstance(step, LoopStep)
+    assert step.session.state is State.AWAITING_INPUT
+
+
+def test_walkthrough_approval_expiry_invalidates_and_reopens():
+    """Scenario 6/8 — an expired or forged token is never spent (I-11; P8).
+
+    Re-validation fails → the token is dead, the plan re-opens at Machine
+    Inspection, and the lapse is disclosed (RFC-0008 §15; RFC-0002 §2.7).
+    """
+    session, work = _awaiting_approval()
+    r = Responders()
+    r.revalidate_ok = False
+    step = advance(r.loop(), session, work, event=OpApprove())
+    assert isinstance(step, LoopStep)
+    assert step.session.state is State.INSPECTING
+    assert step.work.token is None
+    assert step.work.tokens == ()
+    assert any("no longer valid" in d for d in step.disclosures)
+
+
+def test_walkthrough_approval_is_single_use():
+    """Scenario 7 — a consumed token is never reused (P8; RFC-0008 §4).
+
+    Once execution completes, no standing authorization remains.
+    """
+    r1 = Responders()
+    presented = pump(r1.loop(), ready_session())
+    assert isinstance(presented, LoopStep)
+    approved = advance(r1.loop(), presented.session, presented.work, event=OpApprove())
+    assert isinstance(approved, LoopStep)
+    r2 = Responders()
+    done = pump(r2.loop(), approved.session, approved.work)
+    assert isinstance(done, LoopStep)
+    assert done.session.state is State.COMPLETED
+    assert done.work.token is None
+    assert done.work.tokens == ()
+    r3 = Responders()
+    held = pump(r3.loop(), done.session, done.work)
+    assert isinstance(held, LoopStep)
+    assert held.session.state is State.COMPLETED
+    assert not any(c[0] == "run_executor" for c in r3.calls)
+
+
+def test_walkthrough_critical_inspection_asks_rather_than_assumes():
+    """Scenario 10/12 — a critical baseline failure asks, never assumes.
+
+    The critical failure surfaces as a COLLECTOR_FAILED event and the runtime
+    awaits input (RFC-0002 §4.2; V16).
+    """
+    r = Responders()
+    r.inspect_result = Inspection(facts=(), critical=True, hopeless=False)
+    step = pump(r.loop(), ready_session())
+    assert isinstance(step, LoopStep)
+    assert step.session.state is State.AWAITING_INPUT
+    assert EventKind.COLLECTOR_FAILED in [w.kind for w in step.writes]
+
+
+def test_walkthrough_hopeless_inspection_fails_closed():
+    """Scenario 12 — hopeless evidence ends the attempt honestly (V16)."""
+    r = Responders()
+    r.inspect_result = Inspection(facts=(), critical=False, hopeless=True)
+    step = pump(r.loop(), ready_session())
+    assert isinstance(step, LoopStep)
+    assert step.session.state is State.FAILED
+    assert EventKind.COLLECTOR_FAILED in [w.kind for w in step.writes]
+
+
+def test_walkthrough_verification_contradiction_stops_the_path():
+    """Scenario 11/31 — contradiction always wins (V7).
+
+    The failure becomes the re-plan trigger: the path stops, authority clears,
+    and the plan returns through the gate to a fresh decision (RFC-0002 §2.10;
+    RFC-0008 §15).
+    """
+    r1 = Responders()
+    presented = pump(r1.loop(), ready_session())
+    assert isinstance(presented, LoopStep)
+    approved = advance(r1.loop(), presented.session, presented.work, event=OpApprove())
+    assert isinstance(approved, LoopStep)
+    r2 = Responders()
+    r2.verify_result = VerifyResult(VerifyKind.FAILED)
+    step = pump(r2.loop(), approved.session, approved.work)
+    assert isinstance(step, LoopStep)
+    assert step.session.state is State.AWAITING_APPROVAL
+    assert step.work.token is None
+    assert step.work.presented is True
+    kinds = [w.kind for w in step.writes]
+    assert EventKind.ACTION_SUCCEEDED in kinds
+    assert EventKind.VERIFICATION_FAILED in kinds
+
+
+def test_walkthrough_audit_unavailability_blocks_the_consequence():
+    """Scenario 17 — a failed audit write blocks its consequence (AU8).
+
+    The consequence the refused write precedes is blocked loudly.
+    """
+    session, work = _awaiting_approval()
+    r = Responders()
+    r.record_ok = False
+    result = advance(r.loop(), session, work, event=OpApprove())
+    assert isinstance(result, Refusal)
+    assert "audit write refused" in result.reason
+
+
+def test_walkthrough_runtime_interrupt_halts_and_clears_authority():
+    """Scenario 21 — an interrupt is not an authorization (I-15).
+
+    The halt clears the token, records the ran/not-ran set, and re-orients.
+    """
+    r1 = Responders()
+    presented = pump(r1.loop(), ready_session())
+    assert isinstance(presented, LoopStep)
+    approved = advance(r1.loop(), presented.session, presented.work, event=OpApprove())
+    assert isinstance(approved, LoopStep)
+    r2 = Responders()
+    r2.run = RunResult(RunKind.INTERRUPTED)
+    step = pump(r2.loop(), approved.session, approved.work)
+    assert isinstance(step, LoopStep)
+    assert step.session.state is State.INTERRUPTED
+    assert step.work.token is None
+    assert step.work.tokens == ()
+    assert EventKind.ACTION_INTERRUPTED in [w.kind for w in step.writes]
+    assert any("state uncertain" in d for d in step.disclosures)
+
+
+def test_walkthrough_executor_failure_halts_and_reassesses():
+    """Scenario 27/28/29 — a failed Action is never auto-retried.
+
+    The failure re-opens through Verification → Replanning with authority
+    cleared, then returns through the gate to a fresh decision (RFC-0008 §11;
+    RFC-0002 §10).
+    """
+    r1 = Responders()
+    presented = pump(r1.loop(), ready_session())
+    assert isinstance(presented, LoopStep)
+    approved = advance(r1.loop(), presented.session, presented.work, event=OpApprove())
+    assert isinstance(approved, LoopStep)
+    r2 = Responders()
+    r2.run = RunResult(RunKind.FAILED)
+    r2.verify_result = VerifyResult(VerifyKind.FAILED)
+    step = pump(r2.loop(), approved.session, approved.work)
+    assert isinstance(step, LoopStep)
+    assert step.session.state is State.AWAITING_APPROVAL
+    assert step.work.token is None
+    assert step.work.presented is True
+    kinds = [w.kind for w in step.writes]
+    assert EventKind.ACTION_FAILED in kinds
+    assert EventKind.VERIFICATION_FAILED in kinds
+
+
+def test_walkthrough_operator_cancel_revokes_and_replans():
+    """Scenario 25 — revocation is recorded; the token is never resurrected.
+
+    Rejecting the presented plan re-opens it at Replanning with authority
+    cleared (P8; RFC-0002 §2.15).
+    """
+    session, work = _awaiting_approval()
+    r = Responders()
+    step = advance(r.loop(), session, work, event=OpReject())
+    assert isinstance(step, LoopStep)
+    assert step.session.state is State.REPLANNING
+    assert step.work.token is None
+    assert step.work.tokens == ()
+    assert step.writes[0].kind is EventKind.OP_REJECT
+
+
+def test_walkthrough_awaiting_approval_holds_while_the_operator_is_absent():
+    """Scenario 26 — absence is not consent (RFC-0001 §8.3).
+
+    Awaiting Approval holds; no action runs without the Operator.
+    """
+    session, work = _awaiting_approval()
+    r = Responders()
+    step = pump(r.loop(), session, work)
+    assert isinstance(step, LoopStep)
+    assert step.session is session
+    assert step.work.presented is True
+    assert not any(c[0] == "run_executor" for c in r.calls)
+
+
+def test_walkthrough_unsupported_platform_fails_closed():
+    """Scenario 30 — unmet prerequisites refuse service (RFC-0002 §2.1).
+
+    The runtime fails closed rather than guessing (RFC-0001 §8.12).
+    """
+    denied = Prerequisites(
+        elevation_available=True,
+        machine_fingerprint_verified=False,
+        audit_writable=True,
+    )
+    result = Session.initial().start(denied)
+    assert isinstance(result, Session)
+    assert result.state is State.END
