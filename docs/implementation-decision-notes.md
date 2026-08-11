@@ -2788,3 +2788,245 @@ fresh-Provider-View rule (DN-93), and the zero-I/O injected-responder loop
 The next iteration is the `cli` layer (blueprint §8.12), the only importer of
 `core`, which consumes the `core` session/loop surface as its sole entry point.
 No new decision note is required for this closeout.
+
+---
+
+## Iteration 12 ratification — Presentation layer (RFC-0001 §5)
+
+This section ratifies the eight blocking questions Q1–Q8 of
+`docs/iteration-12-design-review.md` §10 as **DN-96…DN-103**, exactly as
+Iterations 1–11 ratified theirs before C0. Each question resolves an
+implementation interpretation that the frozen corpus leaves open; no question
+requires an RFC amendment, a `core`/`audit`/`context`/`schema` change, a new
+module (the three `cli` modules are already scaffolded per blueprint §2), or a
+new dependency edge beyond the declared `cli → {core, audit, context, schema}`
+set with nothing importing `cli` (blueprint §4.1/§4.2). RFC-0005 through
+RFC-0013 and RFC-0021 are Draft and RFC-0015 is Planned; the layer conforms to
+the Draft wording it transcribes knowingly (RFC-0013 §8, RFC-0012 §13),
+accepting the rework risk a Draft change carries, exactly as Iterations 1–11
+conformed to the Draft sections they translated. The grounding RFCs cited below
+are Accepted where marked; RFC-0012, RFC-0013, and RFC-0009 are Draft, RFC-0015
+is Planned.
+
+## DN-96 — Iteration 12 executes the `cli` layer; the blueprint §8.12/§8.13 numbering is superseded by DN-45's re-order and the MVP gate keeps its production meaning
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 12 ratification) |
+| Date | 2026-08-11 |
+| Resolves | design review §10 Q1 |
+| Grounding | DN-45 (re-order: `core` = Iteration 11, `cli` = Iteration 12); blueprint §8.12 ("Iteration 11 — the MVP gate": DoD is RFC-0015/0019/0020 and the Drafts Accepted before production), §8.13 ("Iteration 12 — production MVP"); Iteration 11 closeout (consistency report "Readiness for Iteration 12": "The next iteration is `cli` (Layer 7; blueprint §8.12) — the only importer of `core`") |
+| Embodied in | Iteration 12 implementation plan (docs-ratification commit C0) |
+
+**Decision.** Iteration 12 executes as the **Presentation layer (`cli` only)**
+(RFC-0001 §5; blueprint §2, §4.1, §4.2, §5). The blueprint §8.12/§8.13 numbering
+is **superseded by DN-45's re-order and the Iteration 11 closeout**: `cli` is
+Iteration 12, not the §8.13 label's "production MVP". The blueprint text itself
+is **left unchanged** — the renumbering is recorded here and in the consistency
+report as a reported tension, and the blueprint stands until RFC-0020 (the
+authoritative build order). The MVP gate (§8.12 DoD) keeps its **production**
+meaning: the real terminal/visual TUI and the semantic interaction contract
+begin only after RFC-0015/0019/0020 and the Drafts are Accepted; this iteration
+implements the CLI's **logic** under the scaffold posture (I/O-free, injected
+primitives), exactly as Iterations 1–11 did. The re-order is dependency-safe:
+`cli` (Layer 7) imports `core`, `audit`, `context`, `schema` only (blueprint
+§4.1) and is imported by nothing. No architecture is added.
+
+**Effect.** The Iteration 12 plan in `docs/iteration-12-design-review.md`
+§12–§14 is ratified; the blueprint §8.12/§8.13 labels stay recorded as a
+reported tension until RFC-0020.
+
+## DN-97 — Iteration 12 builds the in-memory semantic presentation model; the interaction contract is RFC-0015's and the public signatures RFC-0020's
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 12 ratification) |
+| Date | 2026-08-11 |
+| Resolves | design review §10 Q2 |
+| Grounding | RFC-0000 §3 row 0015 (Planned: "Define the interaction architecture of the TUI: how states, evidence, and approvals are presented *semantically* (not visually)… the contract between the runtime and any presentation surface"); blueprint §5 ("interface details deferred to RFC-0015"); DN-1 (in-memory domain types only; RFC-0020 owns serialization, parsing, validation, public API signatures, persistence and wire formats) |
+| Embodied in | Iteration 12 implementation plan, Commit C1 (planned, `render.py`) |
+
+**Decision.** Iteration 12 defines concrete canonical **in-memory presentation
+types and pure mapping functions only** (the DN-1 precedent). These are **not**:
+the TUI's semantic interaction contract, visual/layout definitions,
+keybindings, or wire/display formats. RFC-0015 exclusively owns the semantic
+interaction contract (how states, evidence, and approvals are presented
+*semantically*); RFC-0020 owns the public API signatures, serialization, and
+formats. The CLI's production files perform **no I/O** — rendering, collection,
+and exposure are pure functions over injected sources (DN-55/DN-94).
+
+**Effect.** The iteration's deliverable is the deterministic, I/O-free semantic
+presentation model; the interaction-contract rework risk (RFC-0015 is Planned)
+is accepted and bounded by the scaffold posture.
+
+## DN-98 — The presentable state is derived from the owned surfaces only — the `LoopStep` trace, the §8 transcript, the §13 Provider View, and `schema` types; never raw provider/skill/machine data
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 12 ratification) |
+| Date | 2026-08-11 |
+| Resolves | design review §10 Q3 |
+| Grounding | RFC-0001 §5 (render conversation/state; present evidence and proposed actions legibly); RFC-0002 I-4 (the LLM is consulted only through a Provider View), I-5 (no untrusted text into a command), I-7 (classification deterministic, never LLM self-report); RFC-0013 §7/§8 (the record categories and the transcript); RFC-0012 §13 (the Provider View); blueprint §5 (`core` is "the only entry point the `cli` uses") |
+| Embodied in | Iteration 12 implementation plan, Commit C1 (planned, `render.py`) |
+
+**Decision.** `cli/render.py` derives its presentable state deterministically
+from the **owned surfaces**: the `core` `LoopStep` boundary trace (`session`,
+`writes`, `consultations`, `disclosures`), the RFC-0013 §8 transcript, the
+RFC-0012 §13 Provider View, and the `schema` types (`Action`, `Plan`, `Step`,
+`Proposal`, `VerificationOutcome`). It **never** renders raw provider/skill/
+machine data (I-4/I-5/I-7) and never constructs a command. The
+provider-world/machine-world separation (RFC-0002 §1) is preserved at the
+presentation boundary.
+
+**Effect.** The render surface is fixed by the owned boundary trace; no new data
+path from the runtime to the Operator exists outside the seam `core` already
+exposes.
+
+## DN-99 — `collect` maps a closed Operator-decision vocabulary to the RFC-0002 §4.1 operator events; inapplicable events are refused by `core` and presented honestly
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 12 ratification) |
+| Date | 2026-08-11 |
+| Resolves | design review §10 Q4 |
+| Grounding | RFC-0001 §5 (collect approvals, refusals, and free-text Operator input); RFC-0002 §4.1 (the operator event catalog: OP_GOAL, OP_REPLY, OP_APPROVE, OP_OVERRIDE, OP_REJECT, OP_REFINE, OP_CANCEL, OP_INTERRUPT, OP_EXIT, OP_VIEW), I-9 (the runtime never fabricates); RFC-0004 §7 (Presentation not an actor) |
+| Embodied in | Iteration 12 implementation plan, Commit C2 (planned, `collect.py`) |
+
+**Decision.** `cli/collect.py` models a collected Operator decision as a closed
+vocabulary (approve, reject, override, refine, reply, cancel, interrupt, exit,
+view) with an optional free-text payload, mapped deterministically to the
+RFC-0002 §4.1 operator event of the same intent. The CLI **decides nothing**: an
+inapplicable decision yields `core`'s `Refusal`, which is presented honestly
+(I-9), never swallowed and never re-mapped. Free text travels only as the
+OP_REPLY/OP_REFINE payload (I-5: never into a command).
+
+**Effect.** The `core` seam is one-way (events out, `LoopStep`/`Refusal` in);
+the collection is deterministic and testable.
+
+## DN-100 — `expose` presents the audit log through the RFC-0013 §8 transcript and the context through the RFC-0012 §13 Provider View; read-only and secret-free
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 12 ratification) |
+| Date | 2026-08-11 |
+| Resolves | design review §10 Q5 |
+| Grounding | RFC-0001 §5 (expose the audit log and context view on demand); RFC-0013 §8 (the transcript's five categories, derived from the record only, AU2), §21 (the record's integrity is `audit`'s); RFC-0012 §13 (the Provider View); RFC-0009 SC2/SC3/SC4/SC16; DN-88 (`core` is the single runtime writer — `cli` never writes) |
+| Embodied in | Iteration 12 implementation plan, Commit C3 (planned, `expose.py`) |
+
+**Decision.** `cli/expose.py` exposes the audit log as the **five §8 transcript
+categories** via `audit.transcript.render` (metadata only, SC4) and the context
+view as the **§13 Provider View** (SC3). Exposure is **read-only**: `cli` never
+appends a record (the write is `core`'s, DN-88), never mutates Context/Memory,
+and never re-derives a record. No secret value ever leaves (SC2/SC3/SC4/SC16);
+the `AuditStore`'s durable lifecycle (Exported/Retained/Deleted) is RFC-0020's.
+
+**Effect.** The exposure seam is a pure read over the transcript and View; the
+secret-free guarantee holds by construction, not by re-redaction (which would
+need a `secrets` import, forbidden to `cli`).
+
+## DN-101 — The risk-class/gate names carried by the records map to a closed presentation-tone vocabulary; presentation-only, never a gate change
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 12 ratification) |
+| Date | 2026-08-11 |
+| Resolves | design review §10 Q6 |
+| Grounding | RFC-0001 §5 ("Translate risk levels into *presentation* tone and layout (never into policy)"); RFC-0004 §7 (Presentation not an actor); RFC-0008 (the risk classes and gates are `policy`'s); RFC-0013 §7 cat. 4 (`ApprovalRecord.risk_class`/`gate` names as record data); RFC-0004 §3 (consume-as-values) |
+| Embodied in | Iteration 12 implementation plan, Commit C1 (planned, `render.py`) |
+
+**Decision.** The presentation tone is a **closed enum**, mapped deterministically
+from the `risk_class`/`gate` **names** the records carry (RFC-0004 §3
+consume-as-values — `policy` is forbidden to `cli`). The mapping is total,
+one-directional, and **presentation-only**: a tone never changes a gate, never
+mints an approval token, never blocks, never classifies (RFC-0001 §5; RFC-0004
+§7).
+
+**Effect.** The tone is derived from record data without a `policy` import; the
+"never into policy" doctrine is conformance-enforced (C4).
+
+## DN-102 — The CLI drives the session only through `core.advance`/`core.pump`, emitting §4.1 operator events and presenting `LoopStep`/`Refusal`; it never constructs session/state/recovery logic
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 12 ratification) |
+| Date | 2026-08-11 |
+| Resolves | design review §10 Q7 |
+| Grounding | blueprint §5 (`core` is "the only entry point the `cli` uses"); RFC-0002 §4.1/§5 (the session loop and the operator events); RFC-0004 §7 (Presentation not an actor); DN-88 (`core` is the single runtime writer) |
+| Embodied in | Iteration 12 implementation plan, Commits C2/C3 (planned, `collect.py`/`expose.py`) |
+
+**Decision.** The CLI's only interaction with the runtime is the `core` surface:
+`Session`, `Prerequisites`, the §4.1 operator events, `Loop`, `LoopStep`,
+`advance`, `pump`, `Refusal`. It never holds and mutates a `Session`, never
+builds a `Workstate`, never runs a recovery reaction, never classifies, never
+writes a record. An inapplicable event is refused by `core`; the `Refusal` is
+presented, not worked around.
+
+**Effect.** The runtime half of the loop stays `core`'s alone; the CLI's role is
+strictly presentation and collection.
+
+## DN-103 — The CLI's logic is I/O-free and deterministic; tests inject the `LoopStep`/record/View sources and the C4 conformance suite enforces imports, authority, tone-only, and the banned-token oracle
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 12 ratification) |
+| Date | 2026-08-11 |
+| Resolves | design review §10 Q8 |
+| Grounding | blueprint §7 (the `cli` test-oracle row: RFC-0001 §5 Presentation); DN-55 (the injected-primitive precedent), DN-94 (the no-I/O posture); RFC-0007 S7 (determinism is asserted) |
+| Embodied in | Iteration 12 implementation plan, Commits C1–C4 |
+
+**Decision.** The CLI's production files perform **no I/O** — no clock, no
+network, no filesystem, no subprocess (DN-55/DN-94). The C1–C3 tests inject the
+sources (`LoopStep`, records, `ProviderView`) and assert the pure presentable
+outputs. The C4 conformance suite asserts the exact §4.1/§4.2 import edges, the
+closed stdlib allowlist, the banned-token oracle, the RFC-0004 §7 non-actor
+cells, tone-only (a tone never changes a gate), secret-free outputs, and the
+only-`cli`-imports-`core` AST edge.
+
+**Effect.** The presentation layer is testable deterministically now; the real
+terminal I/O loop is RFC-0015/RFC-0020's.
+
+### Q1–Q8 question status
+
+| §10 Q | Subject | Status | Where resolved |
+|---|---|---|---|
+| Q1 | Iteration scope / renumbering vs blueprint §8.12/§8.13 + the MVP gate | **Ratified** | DN-96 (this file) |
+| Q2 | The semantic-vs-visual split | **Ratified** | DN-97 (this file) |
+| Q3 | The presentable-state source | **Ratified** | DN-98 (this file) |
+| Q4 | The decision-collection model | **Ratified** | DN-99 (this file) |
+| Q5 | The audit/context exposure | **Ratified** | DN-100 (this file) |
+| Q6 | The risk-tone translation surface | **Ratified** | DN-101 (this file) |
+| Q7 | The `core` seam | **Ratified** | DN-102 (this file) |
+| Q8 | Testability at zero I/O | **Ratified** | DN-103 (this file) |
+
+All eight §10 questions are resolved as decision notes; none requires an RFC
+amendment, a `core`/`audit`/`context`/`schema` change, a new module (the three
+`cli` modules are already scaffolded per blueprint §2), or a new dependency edge
+beyond the declared `cli → {core, audit, context, schema}` set with nothing
+importing `cli` (blueprint §4.1/§4.2). **Iteration 12 implementation is
+unblocked** (design review §16 readiness). The planned commits (design review
+§12) will be recorded in `docs/implementation-consistency-report.md` (Iteration
+12 section) as they land.
+
+### DN-96 … DN-103 completion status
+
+| Note | Decision | Status | Embodied in | Validated by |
+|---|---|---|---|---|
+| DN-96 | `cli` executes at Iteration 12; blueprint §8.12/§8.13 labels superseded and stand until RFC-0020; the MVP gate keeps its production meaning | **Ratified** | C0 (docs-ratification) | design review §10 Q1 |
+| DN-97 | In-memory semantic presentation model only; the interaction contract is RFC-0015's, the public signatures RFC-0020's | **Ratified** | C1 (planned, `render.py`) | pending C1 |
+| DN-98 | The presentable state is derived from the owned surfaces only — the `LoopStep` trace, the §8 transcript, the §13 View, `schema` types | **Ratified** | C1 (planned, `render.py`) | pending C1 |
+| DN-99 | `collect` maps a closed decision vocabulary to the §4.1 operator events; inapplicable events are refused by `core` and presented honestly | **Ratified** | C2 (planned, `collect.py`) | pending C2 |
+| DN-100 | `expose` presents the §8 transcript and the §13 View; read-only and secret-free (SC-series) | **Ratified** | C3 (planned, `expose.py`) | pending C3 |
+| DN-101 | The record-carried risk-class/gate names map to a closed presentation-tone vocabulary; presentation-only | **Ratified** | C1 (planned, `render.py`) | pending C1 |
+| DN-102 | The CLI drives the session only through `core.advance`/`core.pump`; never constructs session/state/recovery logic | **Ratified** | C2/C3 (planned, `collect.py`/`expose.py`) | pending C2/C3 |
+| DN-103 | The CLI's logic is I/O-free and deterministic; injected sources; C4 conformance suite | **Ratified** | C1–C4 (planned) | pending C4 |
+
+**Iteration 12 ratification note.** All eight Presentation layer decisions
+(DN-96…DN-103) are ratified **before Commit C1**, the first implementation
+commit, exactly as Iterations 1–11 ratified their decisions before C0; none is
+yet implemented (C1–C5 remain, per design review §12). The three `cli` modules
+are scaffolded stubs (blueprint §2) and the `cli` dependency rows are already
+declared in `tests/test_dependency_rules.py`, so the tree test stays green
+throughout. Because Iteration 12's C0 (the design-review record) is committed
+first, the ratification record in this file travels with Commit C0; the design
+review §16 readiness flips to READY and Commit C1 (`render.py`, the presentation
+model) satisfies the design review §14 C1 DoD.
