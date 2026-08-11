@@ -2735,3 +2735,35 @@ green throughout. Because Iteration 11's C0 (the design-review record) was
 committed first, the ratification record in this file travels with Commit C1;
 the design review §16 readiness flips to READY and Commit C1 (`state_machine.py`
 + `events.py`, the state/event model) satisfies the design review §14 C1 DoD.
+
+## DN-95 — C1's verified implementation exceeds the §12 <300-LOC cap and the §15 ~270-LOC estimate; the deviation is reconciled and ratified as inherent to the DN-87 explicit per-event dispatch
+
+| Field | Value |
+|---|---|
+| Status | Ratified (Operator, Iteration 11 Commit C1 reconciliation) |
+| Date | 2026-08-11 |
+| Resolves | design review §12 (the <300 production LOC per-commit cap), §15 (C1 estimated at ~270 impl LOC) |
+| Grounding | DN-87 (the full §4.1–§4.7 catalog as one explicit typed event per kind); RFC-0002 §4 (the 39-event catalog); RFC-0013 §7 (record categories), AU3/AU6 (the audit mapping complete by construction); RFC-0007 S7 (determinism); the Q1 renumbering precedent (design review §10 — the plan-vs-record tension is reconciled by a decision note, never by editing the ratified review) |
+| Embodied in | Commit C1 (`state_machine.py` + `events.py`) |
+
+**Decision.** The verified C1 implementation is **1,027 production LOC** —
+`state_machine.py` 233, `events.py` 794 — against the §15 ~270 estimate and the
+§12 <300 per-commit cap. The overshoot is **inherent to the ratified design**,
+not scope creep: DN-87 declares each of the 39 §4.1–§4.7 events as an explicit
+typed dataclass carrying its `kind`, its RFC-0013 §7 record `category`, and its
+per-event dispatch, so the audit mapping is complete by construction (AU3/AU6)
+and no transition or routing logic lives outside the two C1 files. The
+data-carrying events (OP_REPLY's routing constraint, COLLECTOR_FAILED's
+critical/hopeless, ACTION_PARTIAL's halt, VERIFICATION_PASSED's steps-remaining,
+TIMEOUT's injected `Deadline`) need per-event validation that a table-driven
+dispatch would push into a central switch, and the estimate did not anticipate
+the per-event docstrings. The cap is a governance target, not an RFC invariant
+(the RFC-0002 §9 invariants and the design-review §14 C1 DoD are all met).
+**The reconciled figure is recorded and ratified so Commit C1 lands complete
+and unambiguous.**
+
+**Effect.** C1's actual scope is on the record; later commits re-estimate from
+the C1 experience (`events.py` is the whole §4 catalog, not a template for
+other files). No RFC, no design decision (DN-86/DN-87), and no architecture
+change; the §12 cap continues to apply to subsequent commits from their §15
+estimates.
