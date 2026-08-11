@@ -236,7 +236,7 @@ class OpReply(RuntimeEvent):
         if self.routes_to not in (State.DIAGNOSING, State.PLANNING):
             raise ValueError(
                 f"OP_REPLY routes to Diagnosis or Planning only, got "
-                f"{self.routes_to.name}"
+                f"{self.routes_to!r}"
             )
 
     def next_state(self, state: State) -> State | None:
