@@ -235,8 +235,7 @@ class OpReply(RuntimeEvent):
     def __post_init__(self) -> None:
         if self.routes_to not in (State.DIAGNOSING, State.PLANNING):
             raise ValueError(
-                f"OP_REPLY routes to Diagnosis or Planning only, got "
-                f"{self.routes_to!r}"
+                f"OP_REPLY routes to Diagnosis or Planning only, got {self.routes_to!r}"
             )
 
     def next_state(self, state: State) -> State | None:
