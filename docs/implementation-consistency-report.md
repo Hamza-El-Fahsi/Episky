@@ -2409,6 +2409,124 @@ and names its §1.2 owner (design review §1.2):
 
 ---
 
+## Iteration 12 — the `cli` layer (complete)
+
+Iteration 12 implements the **Layer-7 Presentation CLI layer** (`cli`, RFC-0001
+§5; blueprint §8.12, re-ordered by DN-96 to execute at Iteration 12). The full
+design review is `docs/iteration-12-design-review.md`; the ratified decisions are
+DN-96…DN-103 in `docs/implementation-decision-notes.md`, with C2's core fix
+recorded as DN-104. Commit C0 was the docs-ratification commit (answers all eight
+design-review questions Q1–Q8 as decision notes); C1–C3 filled the three
+Iteration-0 scaffolds (`render`, `collect`, `expose`); C4 added the Layer-7
+conformance oracle; C5 (this commit) records its completion and the layer's
+conformance. No RFC is modified. The layer is **not an actor** (RFC-0004 §7): it
+renders, collects, and exposes, and its dependency edges are exactly the
+blueprint §4.1 set (`core`, `audit`, `context`, `schema`), imported by nothing
+(the C4 oracle enforces the edges). C1–C4 fill scaffolds with **no new module**;
+`src/` is untouched by C4 and C5 except the one-line C2 `core` fix (DN-104).
+
+### Commit mapping (C0–C5)
+
+| Commit | Message | Content |
+|---|---|---|
+| C0 `77c1ced` | `docs: ratify Iteration 12 questions Q1-Q8 and cli scope` | Design-review ratification: Q1–Q8 resolved, DN-96…DN-103 recorded, renumbering note (Q1), consistency-report note |
+| C1 `6bd6025` | `feat(cli): the presentation model and render surface (RFC-0001 §5)` | `render.py`: the presentable state (state, goal, disclosure trace, tone), the boundary records, and the consultations, derived from a `core` `LoopStep` and owned surfaces only (DN-98); the closed risk-class/gate → tone map (Q6; DN-101); metadata-only boundary presentation (SC4) — 24 tests (`test_cli_render.py`) |
+| C2 `e5eee8d` | `feat(cli): operator decision collection (RFC-0001 §5; RFC-0002 §4.1)` | `collect.py`: the closed Operator-decision vocabulary mapped deterministically to the §4.1 operator events (Q4; DN-99), free-text payloads never into a command (I-5), inapplicable events refused by `core` with the `Refusal` surfaced honestly (Q7/Q4; DN-99/DN-102); core fix: `OpReply.__post_init__` now raises its intended `ValueError` on a None route instead of `AttributeError` (DN-104) — 19 tests (`test_cli_collect.py`) |
+| C3 `c7ce8c5` | `feat(cli): audit and context exposure (RFC-0001 §5; RFC-0013 §8; RFC-0012 §13)` | `expose.py`: the audit log as §8 transcript entries via `audit.transcript.render` and the context view as the §13 Provider View outcome (Q5; DN-100), read-only, metadata-only, and secret-free (SC2/SC3/SC4) with no write path — 8 tests (`test_cli_expose.py`) |
+| C4 `08f624c` | `test(cli): Layer-7 conformance — imports, authority, tone, I/O-free` | `test_cli_imports.py` (exact §4.1/§4.2 edges + the closed stdlib allowlist + the banned-token oracle) and `test_cli_conformance.py` (RFC-0004 §7 non-actor cells, tone-is-presentation-only, verbatim owned-surface derivation, secret-free presented types, the only-`cli`-imports-`core` AST edge) — 31 tests |
+| C5 `(this commit)` | `docs: record Iteration 12 completion and cli conformance` | This closeout |
+
+### Q1–Q8 resolution summary
+
+| §12 Q | Subject | Resolution | Governing RFC / note |
+|---|---|---|---|
+| Q1 | Iteration scope / renumbering vs blueprint §8.12/§8.13 + the MVP gate | `cli` executes at Iteration 12 per DN-45's re-order; the §8.12/§8.13 labels are superseded and stand until RFC-0020; the MVP gate keeps its production meaning | **DN-96** |
+| Q2 | The semantic-vs-visual split | The layer builds the in-memory semantic presentation model (DN-97); the interaction contract and the visual surface are RFC-0015's | **DN-97**; RFC-0015 |
+| Q3 | The presentable-state source | Derived from the owned surfaces only — the `LoopStep` trace, the §8 transcript, the §13 View, `schema` types; never raw provider/skill/machine data | **DN-98** |
+| Q4 | The decision-collection model | Closed vocabulary → the §4.1 operator events with free-text payloads; inapplicable events refused by `core` and the `Refusal` presented | **DN-99**; RFC-0002 §4.1 |
+| Q5 | The audit/context exposure | The §8 transcript via `audit.transcript.render`; the §13 View via `context`; read-only and secret-free (SC2/SC3/SC4) | **DN-100**; RFC-0013 §8; RFC-0012 §13 |
+| Q6 | The risk-tone translation surface | The record-carried risk-class/gate names map to a closed tone vocabulary; total, deterministic, presentation-only | **DN-101**; RFC-0008 §6 |
+| Q7 | The `core` seam | Drive only through `core.advance`/`core.pump`; emit §4.1 operator events; present `LoopStep`/`Refusal`; never construct session/state/recovery logic | **DN-102**; blueprint §5 |
+| Q8 | Testability at zero I/O | C1–C3 inject `LoopStep`/records/`ProviderView` sources and assert pure outputs; C4 enforces imports, authority, tone-only, and the banned-token oracle | **DN-103** |
+
+### DN-96 … DN-104 implementation mapping
+
+| Note | Decision | Embodied in | Validated by |
+|---|---|---|---|
+| DN-96 | `cli` = Iteration 12; §8.12/§8.13 superseded; MVP gate standing | C0 | design review §10 Q1 |
+| DN-97 | In-memory semantic presentation model; interaction contract RFC-0015's | C1 (`render.py`) | `test_cli_render.py`; C4 |
+| DN-98 | Presentable state from the owned surfaces only; never raw data | C1 (`render.py`) | `test_cli_render.py`; C4 verbatim-derivation |
+| DN-99 | Closed decision vocabulary → §4.1 events; inapplicable refused by `core` | C2 (`collect.py`) | `test_cli_collect.py`; C4 |
+| DN-100 | Audit log via the §8 transcript; context via the §13 View; read-only, secret-free | C3 (`expose.py`) | `test_cli_expose.py` |
+| DN-101 | Risk/gate → tone closed map; presentation-only, never a gate change | C1 (`render.py`) | `test_cli_render.py`; C4 tone-only |
+| DN-102 | Drive via `advance`/`pump` only; never construct session/state/recovery | C2/C3 (`collect.py`/`expose.py`) | `test_cli_collect.py`; C4 |
+| DN-103 | I/O-free deterministic logic and tests; injected sources; C4 oracle | C1–C3 + C4 | C4 banned-token oracle |
+| DN-104 | Core `OpReply` route validation fires its fail-loud `ValueError` on a None route (C2 surfaced `AttributeError`) | C2 (`core/events.py`, one line) | `test_cli_collect.py` |
+
+### Module ownership map
+
+| Type / value | Module | Owning RFC |
+|---|---|---|
+| `Tone`, `PresentedState`, `PresentedEvent`, `PresentedConsultation`, `Presented`, `tone_for`, `present` | `cli/render.py` | RFC-0001 §5; RFC-0008 §6 |
+| `Decision`, `Collected`, `to_event` | `cli/collect.py` | RFC-0001 §5; RFC-0002 §4.1 |
+| `PresentedLog`, `PresentedView`, `audit_log`, `context_view` | `cli/expose.py` | RFC-0001 §5; RFC-0013 §8; RFC-0012 §13 |
+
+Each type is defined in exactly one module and no type crosses an ownership
+boundary (RFC-0004 §3 one-owner rule); the CLI defines no authority type and its
+presented/exposed structures hold no value, no gate, and no token field (C4).
+
+### Remaining deferred items
+
+Recorded only; nothing is invented. Everything below belongs to a later RFC and
+names the design-review §1.2 owner:
+
+| Deferred item | Owning future RFC |
+|---|---|
+| The TUI's semantic interaction contract (presentation semantics, the approval experience, degraded-mode presentation, progress/status) | RFC-0015 |
+| The visual/terminal surface — widgets, keybindings, layout, colors, the async I/O loop | RFC-0015 / RFC-0020 |
+| Public API signatures, serialization, wire/display formats | RFC-0020 (DN-1 precedent) |
+| User-facing configuration and defaults UI | RFC-0016 |
+| Anything policy, execution, fact, provider, skill, or secret logic | Forbidden to `cli` (RFC-0004 §7; blueprint §4.2) |
+| The MVP gate and production start | RFC-0019 (MVP definition) |
+
+### Completion verdict
+
+- Iteration 12 implementation is **complete**.
+- **Layer-7 Definition of Done is satisfied** (design review §14 overall DoD):
+  the three scaffolds (`render`, `collect`, `expose`) are filled; the C4
+  conformance suite enforces the §4.1/§4.2 import edges, the closed stdlib
+  allowlist, the RFC-0004 §7 non-actor guarantee (no authority cell), tone-only
+  presentation (a tone never changes a gate), secret-free presented/exposed
+  types, and the only-`cli`-imports-`core` AST edge.
+- **C0–C5 are complete.** The three `cli` modules are each deterministic, pure,
+  I/O-free, and authority-bounded (DN-97/DN-103). C4 is the conformance oracle;
+  C5 is this record.
+- **Actual scope recorded.** Production `cli` is **383 LOC** (`render.py` 186,
+  `collect.py` 115, `expose.py` 82) — within the design-review §12 estimates
+  (C1 ~260, C2 ~200, C3 ~180) — plus the one-line C2 `core` fix (DN-104). Test
+  LOC is **870** across the five `test_cli_*` modules.
+- Full suite: **3486 collected — 3484 passed**. The two failures
+  (`test_trust_hostile.py::test_no_non_excluded_quarantine_can_exist`,
+  `test_trust_invariants.py::test_quarantine_exclusion_is_unconditional`) are
+  pre-existing on a clean tree since before Iteration 12 (verified via stash)
+  and unrelated to Layer 7. `ruff check`, `ruff format --check`,
+  `python -m build`, and `pre-commit run --all-files` are clean. Working tree is
+  clean after C5 (only the pre-existing untracked `HANDOFF.md` and `uv.lock`
+  remain).
+
+### Readiness for the next gate
+
+- **Gate reached.** The `cli` layer (Layer 7) completes the scaffold-phase
+  layers of blueprint §8. All further layers are gated: the interaction contract
+  is RFC-0015's, the MVP definition RFC-0019's, and the implementation
+  blueprint/public signatures RFC-0020's (design review §1.2 deferred table,
+  mirrored above). No new implementation commit belongs to this iteration.
+- **Ready.** Wait for RFC-0015/0019/0020 before production code (blueprint
+  §8.12/§8.13; DN-96). The deferred-item tables name every owner; the tree and
+  dependency edges are unchanged.
+
+---
+
 ## Known limitation
 
 Blueprint §8.1 Definition of Done requires the validator to "exit 0 on the

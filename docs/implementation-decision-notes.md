@@ -3030,3 +3030,49 @@ throughout. Because Iteration 12's C0 (the design-review record) is committed
 first, the ratification record in this file travels with Commit C0; the design
 review §16 readiness flips to READY and Commit C1 (`render.py`, the presentation
 model) satisfies the design review §14 C1 DoD.
+
+## DN-104 — The core `OpReply` route validation is fixed to its intended fail-loud contract
+
+**Situation.** Iteration 12, Commit C2. The `collect` path constructs
+`OpReply(routes_to=...)`; when the caller supplied a missing route
+(``routes_to=None``), `OpReply.__post_init__` crashed with an
+``AttributeError`` (`'NoneType' object has no attribute 'name'`) — the
+f-string interpolated ``self.routes_to.name`` **before** the guard could raise
+the intended ``ValueError``. The guard text existed; the crash hid it.
+
+**Decision.** Fix the core event so the *authoritative* validation always fires
+the fail-loud ``ValueError`` it declares: interpolate the route by ``!r``
+(``{self.routes_to!r}``) so a ``None`` or any non-``State`` value renders as
+data inside the message instead of dereferencing ``.name``. The CLI keeps the
+design-review Q7 rule — it does **not** pre-validate routes itself; it hands the
+decision to `core`'s event type and lets the authoritative rule refuse (the
+Ratified reading of DN-99: inapplicable decisions are refused by `core`, and the
+refusal surfaces, never a silent CLI swallow).
+
+**Effect.** `to_event(Collected(decision), routes_to=None)` (or an out-of-set
+route) now raises the clean, deterministic `ValueError` it documents
+(RFC-0007 S7); the CLI collection tests assert both the accepted routes
+(Diagnosis/Planning) and the refused ones. One line changed in
+`core/events.py`; no RFC, no other `core` behavior, no design change.
+
+### DN-96 … DN-104 completion block (Iteration 12 closeout)
+
+| Note | Status | Embodiment | Validation |
+|---|---|---|---|
+| DN-96 … DN-103 | **Implemented** | C1–C4 | corresponding suites + C4 conformance oracle |
+| DN-104 | **Implemented** | C2 (`core/events.py`, one line) | `test_cli_collect.py` (valid/refused REPLY routes) |
+
+**Iteration 12 completion note.** All ratified Presentation layer decisions
+(DN-96…DN-103) are implemented and validated, and the C2-surfaced core defect is
+fixed (DN-104): the full suite is **3486 collected — 3484 passed** (the two
+failures, `test_trust_hostile.py::test_no_non_excluded_quarantine_can_exist` and
+`test_trust_invariants.py::test_quarantine_exclusion_is_unconditional`, are
+pre-existing on a clean tree and unrelated to Layer 7), with the C4 conformance
+oracle (`test_cli_imports.py`, `test_cli_conformance.py`) enforcing the ratified
+edges — the in-memory semantic model (DN-97), the owned-surface derivation
+(DN-98), the closed decision → §4.1 event map (DN-99), the transcript/View
+exposure (DN-100), the presentation-only tone map (DN-101), the `advance`/`pump`
+seam (DN-102), and the zero-I/O injected-source tests (DN-103). The next
+iteration's work gates on RFC-0015/0019/0020 (the TUI contract, the MVP
+definition, and the implementation blueprint) per the design review §1.2
+deferred table; the `cli` layer itself is complete.
